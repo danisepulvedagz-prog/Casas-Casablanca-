@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Marca Casas Casablanca (casascasablanca.cl) */
+  --brand: #31a47b;
+  --brand-dark: #279169;
+  --brand-tint: #eaf6f1;
+  --header-border: #eaeaea;
+
+  --chart-surface: #fcfcfb;
+  --chart-text-secondary: #52514e;
+  --chart-muted: #898781;
+  --chart-grid: #e1e0d9;
+
+  --chart-sequential: #2a78d6;
+  --chart-cat-material: #2a78d6;
+  --chart-cat-mano-obra: #eb6834;
+
+  /* Paleta de estado (fija, no cambia entre modo claro/oscuro) */
+  --status-good: #0ca30c;
+  --status-critical: #d03b3b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-tint: var(--brand-tint);
+  --font-sans: var(--font-roboto);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+
+    --brand-tint: #10261e;
+    --header-border: #262626;
+
+    --chart-surface: #1a1a19;
+    --chart-text-secondary: #c3c2b7;
+    --chart-muted: #898781;
+    --chart-grid: #2c2c2a;
+
+    --chart-sequential: #3987e5;
+    --chart-cat-material: #3987e5;
+    --chart-cat-mano-obra: #d95926;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-roboto), 'Roboto', 'Montserrat', 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
