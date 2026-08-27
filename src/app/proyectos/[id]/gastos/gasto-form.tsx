@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/app/proyectos/[id]/gastos/actions";
+import { Combobox } from "@/components/combobox";
 import type { Database } from "@/lib/supabase/types";
 import { BTN_PRIMARY } from "@/lib/ui";
 
@@ -254,19 +255,14 @@ export function GastoForm({
           <label className={labelClass} htmlFor="material">
             Material / concepto
           </label>
-          <input
+          <Combobox
             id="material"
             name="material"
-            list="materiales-list"
             value={material}
-            onChange={(e) => handleMaterialChange(e.target.value)}
+            onChange={handleMaterialChange}
+            options={materialesFiltrados.map((m) => m.material)}
             className={inputClass}
           />
-          <datalist id="materiales-list">
-            {materialesFiltrados.map((m) => (
-              <option key={m.material} value={m.material} />
-            ))}
-          </datalist>
           {etapaId && materialesFiltrados.length <= 1 && (
             <p className="mt-1 text-xs text-zinc-500">
               Esta etapa no tiene materiales en el catálogo todavía (puedes usar &quot;Otros&quot;).

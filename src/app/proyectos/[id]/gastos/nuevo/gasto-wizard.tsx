@@ -13,6 +13,7 @@ import {
   type FacturaDuplicada,
   type TransferenciaDuplicada,
 } from "@/app/proyectos/[id]/gastos/actions";
+import { Combobox } from "@/components/combobox";
 import { formatFecha } from "@/lib/format";
 import { materialesParaEtapa, type CatalogoMaterial } from "@/lib/materiales";
 import type { CategoriaGasto, Database } from "@/lib/supabase/types";
@@ -444,12 +445,13 @@ function PasoMaterialRevisar({
   useEffect(() => {
     const proveedor = cabecera.proveedor;
     const nDocumento = cabecera.nDocumento;
-    if (!proveedor.trim() || !nDocumento.trim()) {
-      setFacturaDuplicada(null);
-      return;
-    }
     let cancelado = false;
     const timeout = setTimeout(async () => {
+      if (cancelado) return;
+      if (!proveedor.trim() || !nDocumento.trim()) {
+        setFacturaDuplicada(null);
+        return;
+      }
       const resultado = await buscarFacturaDuplicada(proveedor, nDocumento);
       if (!cancelado) setFacturaDuplicada(resultado);
     }, 500);
@@ -546,7 +548,7 @@ function PasoMaterialRevisar({
         Revisa los datos antes de guardar
       </h2>
       <p className="mb-4 text-sm text-zinc-500">
-        La IA puede equivocarse — corrige lo que haga falta. Nada se guarda hasta que apretes "Guardar".
+        La IA puede equivocarse — corrige lo que haga falta. Nada se guarda hasta que apretes &quot;Guardar&quot;.
       </p>
 
       <form action={handleSubmit} className="grid gap-6">
@@ -631,17 +633,12 @@ function PasoMaterialRevisar({
               <div key={it.key} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
                 <div className="mb-3">
                   <label className={labelClass}>Material</label>
-                  <input
+                  <Combobox
                     value={it.material}
-                    list={`materiales-list-mobile-${it.key}`}
-                    onChange={(e) => handleMaterialChange(it, e.target.value)}
+                    onChange={(value) => handleMaterialChange(it, value)}
+                    options={materialesFila.map((m) => m.material)}
                     className={inputClass}
                   />
-                  <datalist id={`materiales-list-mobile-${it.key}`}>
-                    {materialesFila.map((m) => (
-                      <option key={m.material} value={m.material} />
-                    ))}
-                  </datalist>
                 </div>
                 <div className="mb-3 grid grid-cols-2 gap-3">
                   <div>
@@ -756,17 +753,12 @@ function PasoMaterialRevisar({
                 return (
                   <tr key={it.key} className="bg-white dark:bg-zinc-950">
                     <td className="px-3 py-2">
-                      <input
+                      <Combobox
                         value={it.material}
-                        list={`materiales-list-${it.key}`}
-                        onChange={(e) => handleMaterialChange(it, e.target.value)}
+                        onChange={(value) => handleMaterialChange(it, value)}
+                        options={materialesFila.map((m) => m.material)}
                         className={`${inputClass} min-w-[180px]`}
                       />
-                      <datalist id={`materiales-list-${it.key}`}>
-                        {materialesFila.map((m) => (
-                          <option key={m.material} value={m.material} />
-                        ))}
-                      </datalist>
                     </td>
                     <td className="px-3 py-2">
                       <input
@@ -985,19 +977,14 @@ function PasoMaterialManual({
           <label className={labelClass} htmlFor="material">
             Material / concepto
           </label>
-          <input
+          <Combobox
             id="material"
             name="material"
-            list="materiales-list-manual"
             value={material}
-            onChange={(e) => handleMaterialChange(e.target.value)}
+            onChange={handleMaterialChange}
+            options={materialesFiltrados.map((m) => m.material)}
             className={inputClass}
           />
-          <datalist id="materiales-list-manual">
-            {materialesFiltrados.map((m) => (
-              <option key={m.material} value={m.material} />
-            ))}
-          </datalist>
           {etapaId && materialesFiltrados.length <= 1 && (
             <p className="mt-1 text-xs text-zinc-500">
               Esta etapa no tiene materiales en el catálogo todavía (puedes usar &quot;Otros&quot;).
@@ -1193,12 +1180,13 @@ function PasoTransferenciaRevisar({
 
   // Advertencia blanda: mismo destinatario + n° operación ya registrados.
   useEffect(() => {
-    if (!destinatario.trim() || !nOperacion.trim()) {
-      setTransferenciaDuplicada(null);
-      return;
-    }
     let cancelado = false;
     const timeout = setTimeout(async () => {
+      if (cancelado) return;
+      if (!destinatario.trim() || !nOperacion.trim()) {
+        setTransferenciaDuplicada(null);
+        return;
+      }
       const resultado = await buscarTransferenciaDuplicada(destinatario, nOperacion);
       if (!cancelado) setTransferenciaDuplicada(resultado);
     }, 500);
@@ -1271,7 +1259,7 @@ function PasoTransferenciaRevisar({
         Revisa los datos antes de guardar
       </h2>
       <p className="mb-4 text-sm text-zinc-500">
-        La IA puede equivocarse — corrige lo que haga falta. Nada se guarda hasta que apretes "Guardar".
+        La IA puede equivocarse — corrige lo que haga falta. Nada se guarda hasta que apretes &quot;Guardar&quot;.
       </p>
 
       <form action={handleSubmit} className="grid gap-6">
@@ -1383,11 +1371,9 @@ function PasoTransferenciaRevisar({
                     return (
                       <tr key={it.key} className="bg-white dark:bg-zinc-950">
                         <td className="px-3 py-2">
-                          <input
+                          <Combobox
                             value={it.material}
-                            list={`materiales-list-transferencia-${it.key}`}
-                            onChange={(e) => {
-                              const value = e.target.value;
+                            onChange={(value) => {
                               const match = materialesFila.find(
                                 (m) => m.material.trim().toLowerCase() === value.trim().toLowerCase()
                               );
@@ -1396,13 +1382,9 @@ function PasoTransferenciaRevisar({
                                 ...(match ? { unidad: match.unidad_default } : {}),
                               });
                             }}
+                            options={materialesFila.map((m) => m.material)}
                             className={`${inputClass} min-w-[180px]`}
                           />
-                          <datalist id={`materiales-list-transferencia-${it.key}`}>
-                            {materialesFila.map((m) => (
-                              <option key={m.material} value={m.material} />
-                            ))}
-                          </datalist>
                         </td>
                         <td className="px-3 py-2">
                           <input

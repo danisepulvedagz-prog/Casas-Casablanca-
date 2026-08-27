@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/app/proyectos/[id]/gastos/actions";
+import { Combobox } from "@/components/combobox";
 import { materialesParaEtapa, type CatalogoMaterial } from "@/lib/materiales";
 import type { CategoriaGasto, Database } from "@/lib/supabase/types";
 import { BTN_PRIMARY } from "@/lib/ui";
@@ -245,28 +246,20 @@ export function TransferenciaForm({
                   </td>
                   <td className="px-3 py-2">
                     {esMaterial ? (
-                      <>
-                        <input
-                          value={it.material}
-                          list={`materiales-list-${it.key}`}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const match = materialesFila.find(
-                              (m) => m.material.trim().toLowerCase() === value.trim().toLowerCase()
-                            );
-                            actualizarItem(it.key, {
-                              material: value,
-                              ...(match ? { unidad: match.unidad_default } : {}),
-                            });
-                          }}
-                          className={`${inputClass} min-w-[180px]`}
-                        />
-                        <datalist id={`materiales-list-${it.key}`}>
-                          {materialesFila.map((m) => (
-                            <option key={m.material} value={m.material} />
-                          ))}
-                        </datalist>
-                      </>
+                      <Combobox
+                        value={it.material}
+                        onChange={(value) => {
+                          const match = materialesFila.find(
+                            (m) => m.material.trim().toLowerCase() === value.trim().toLowerCase()
+                          );
+                          actualizarItem(it.key, {
+                            material: value,
+                            ...(match ? { unidad: match.unidad_default } : {}),
+                          });
+                        }}
+                        options={materialesFila.map((m) => m.material)}
+                        className={`${inputClass} min-w-[180px]`}
+                      />
                     ) : (
                       <span className="text-xs text-zinc-400">—</span>
                     )}

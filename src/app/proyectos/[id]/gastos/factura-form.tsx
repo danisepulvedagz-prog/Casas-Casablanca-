@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/app/proyectos/[id]/gastos/actions";
+import { Combobox } from "@/components/combobox";
 import { materialesParaEtapa, type CatalogoMaterial } from "@/lib/materiales";
 import type { Database } from "@/lib/supabase/types";
 import { BTN_PRIMARY } from "@/lib/ui";
@@ -216,11 +217,9 @@ export function FacturaForm({
               return (
                 <tr key={it.key} className="bg-white dark:bg-zinc-950">
                   <td className="px-3 py-2">
-                    <input
+                    <Combobox
                       value={it.material}
-                      list={`materiales-list-${it.key}`}
-                      onChange={(e) => {
-                        const value = e.target.value;
+                      onChange={(value) => {
                         const match = materialesFila.find(
                           (m) => m.material.trim().toLowerCase() === value.trim().toLowerCase()
                         );
@@ -229,13 +228,9 @@ export function FacturaForm({
                           ...(match ? { unidad: match.unidad_default } : {}),
                         });
                       }}
+                      options={materialesFila.map((m) => m.material)}
                       className={`${inputClass} min-w-[180px]`}
                     />
-                    <datalist id={`materiales-list-${it.key}`}>
-                      {materialesFila.map((m) => (
-                        <option key={m.material} value={m.material} />
-                      ))}
-                    </datalist>
                   </td>
                   <td className="px-3 py-2">
                     <input
