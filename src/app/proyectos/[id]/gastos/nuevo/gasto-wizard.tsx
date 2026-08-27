@@ -476,6 +476,44 @@ function PasoMaterialRevisar({
   const hayVariosProyectos = proyectosSeleccionados.length > 1;
   const totalItems = items.reduce((sum, it) => sum + (Number(it.montoTotal) || 0), 0);
 
+  // Handlers por ítem, compartidos entre la vista de tarjetas (mobile) y la
+  // tabla (desktop) — cada una renderiza distinto pero mutan el mismo estado.
+  function handleMaterialChange(it: ItemEditable, value: string) {
+    const materialesFila = materialesParaEtapa(materiales, it.etapaId);
+    const match = materialesFila.find(
+      (m) => m.material.trim().toLowerCase() === value.trim().toLowerCase()
+    );
+    actualizarItem(it.key, {
+      material: value,
+      ...(match ? { unidad: match.unidad_default } : {}),
+    });
+  }
+
+  function handleCantidadChange(it: ItemEditable, nuevaCantidad: string) {
+    const cantidadAnterior = Number(it.cantidad);
+    const montoAnterior = Number(it.montoTotal);
+    const precioUnitario =
+      cantidadAnterior > 0 && it.montoTotal !== "" ? montoAnterior / cantidadAnterior : null;
+    const nuevoMonto =
+      precioUnitario != null && nuevaCantidad
+        ? String(Math.round(precioUnitario * Number(nuevaCantidad)))
+        : it.montoTotal;
+    actualizarItem(it.key, { cantidad: nuevaCantidad, montoTotal: nuevoMonto });
+  }
+
+  function handleProyectoChange(it: ItemEditable, nuevoProyectoId: string) {
+    const etapasNuevoProyecto = etapasPorProyecto[nuevoProyectoId] ?? etapas;
+    const etapaSigueValida = etapasNuevoProyecto.some((et) => String(et.id) === it.etapaId);
+    actualizarItem(it.key, {
+      proyectoId: nuevoProyectoId,
+      etapaId: etapaSigueValida ? it.etapaId : "",
+    });
+  }
+
+  function handleEtapaChange(it: ItemEditable, nuevaEtapaId: string) {
+    actualizarItem(it.key, { etapaId: nuevaEtapaId, material: "", unidad: "" });
+  }
+
   function handleSubmit(formData: FormData) {
     formData.set("proveedor", cabecera.proveedor);
     formData.set("n_documento", cabecera.nDocumento);
@@ -528,7 +566,7 @@ function PasoMaterialRevisar({
           </p>
         )}
 
-        <div className="grid grid-cols-2 gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-200 p-4 sm:grid-cols-2 dark:border-zinc-800">
           <div>
             <label className={labelClass}>Proveedor</label>
             <input
@@ -563,7 +601,7 @@ function PasoMaterialRevisar({
               className={inputClass}
             />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label className={labelClass}>Proyectos de esta factura</label>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {proyectos.map((p) => (
@@ -585,7 +623,119 @@ function PasoMaterialRevisar({
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="grid gap-3 sm:hidden">
+          {items.map((it) => {
+            const etapasFila = etapasPorProyecto[it.proyectoId] ?? etapas;
+            const materialesFila = materialesParaEtapa(materiales, it.etapaId);
+            return (
+              <div key={it.key} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+                <div className="mb-3">
+                  <label className={labelClass}>Material</label>
+                  <input
+                    value={it.material}
+                    list={`materiales-list-mobile-${it.key}`}
+                    onChange={(e) => handleMaterialChange(it, e.target.value)}
+                    className={inputClass}
+                  />
+                  <datalist id={`materiales-list-mobile-${it.key}`}>
+                    {materialesFila.map((m) => (
+                      <option key={m.material} value={m.material} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className="mb-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Cant.</label>
+                    <input
+                      type="number"
+                      value={it.cantidad}
+                      onChange={(e) => handleCantidadChange(it, e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Unidad</label>
+                    <input
+                      value={it.unidad}
+                      onChange={(e) => actualizarItem(it.key, { unidad: e.target.value })}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <label className={labelClass}>Monto bruto</label>
+                  <input
+                    type="number"
+                    value={it.montoTotal}
+                    onChange={(e) => actualizarItem(it.key, { montoTotal: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                {hayVariosProyectos && (
+                  <div className="mb-3">
+                    <label className={labelClass}>Proyecto</label>
+                    <select
+                      value={it.proyectoId}
+                      onChange={(e) => handleProyectoChange(it, e.target.value)}
+                      className={inputClass}
+                    >
+                      {proyectosSeleccionados.map((pid) => {
+                        const p = proyectos.find((pr) => pr.id === pid);
+                        return (
+                          <option key={pid} value={pid}>
+                            {p?.nombre ?? pid}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
+                <div className="mb-3">
+                  <label className={labelClass}>Etapa</label>
+                  <select
+                    value={it.etapaId}
+                    onChange={(e) => handleEtapaChange(it, e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Sin etapa</option>
+                    {etapasFila.map((etapa) => (
+                      <option key={etapa.id} value={etapa.id}>
+                        {etapa.orden}. {etapa.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label className={labelClass}>Notas</label>
+                  <input
+                    value={it.notas}
+                    placeholder="opcional"
+                    onChange={(e) => actualizarItem(it.key, { notas: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex items-center gap-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => duplicarItem(it.key)}
+                    className="text-xs text-zinc-500 hover:text-brand hover:underline dark:text-zinc-400"
+                  >
+                    Duplicar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => eliminarItem(it.key)}
+                    className="text-xs text-red-600 hover:underline dark:text-red-400"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-lg border border-zinc-200 sm:block dark:border-zinc-800">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
               <tr>
@@ -609,16 +759,7 @@ function PasoMaterialRevisar({
                       <input
                         value={it.material}
                         list={`materiales-list-${it.key}`}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          const match = materialesFila.find(
-                            (m) => m.material.trim().toLowerCase() === value.trim().toLowerCase()
-                          );
-                          actualizarItem(it.key, {
-                            material: value,
-                            ...(match ? { unidad: match.unidad_default } : {}),
-                          });
-                        }}
+                        onChange={(e) => handleMaterialChange(it, e.target.value)}
                         className={`${inputClass} min-w-[180px]`}
                       />
                       <datalist id={`materiales-list-${it.key}`}>
@@ -631,20 +772,7 @@ function PasoMaterialRevisar({
                       <input
                         type="number"
                         value={it.cantidad}
-                        onChange={(e) => {
-                          const nuevaCantidad = e.target.value;
-                          const cantidadAnterior = Number(it.cantidad);
-                          const montoAnterior = Number(it.montoTotal);
-                          const precioUnitario =
-                            cantidadAnterior > 0 && it.montoTotal !== ""
-                              ? montoAnterior / cantidadAnterior
-                              : null;
-                          const nuevoMonto =
-                            precioUnitario != null && nuevaCantidad
-                              ? String(Math.round(precioUnitario * Number(nuevaCantidad)))
-                              : it.montoTotal;
-                          actualizarItem(it.key, { cantidad: nuevaCantidad, montoTotal: nuevoMonto });
-                        }}
+                        onChange={(e) => handleCantidadChange(it, e.target.value)}
                         className={`${inputClass} w-24`}
                       />
                     </td>
@@ -667,21 +795,7 @@ function PasoMaterialRevisar({
                       <td className="px-3 py-2">
                         <select
                           value={it.proyectoId}
-                          onChange={(e) => {
-                            const nuevoProyectoId = e.target.value;
-                            const etapasNuevoProyecto = etapasPorProyecto[nuevoProyectoId] ?? etapas;
-                            // La etapa es el mismo catálogo para todos los
-                            // proyectos — solo se limpia si el proyecto
-                            // nuevo de verdad no la tiene (ej. no tiene
-                            // deck), si no, se mantiene.
-                            const etapaSigueValida = etapasNuevoProyecto.some(
-                              (et) => String(et.id) === it.etapaId
-                            );
-                            actualizarItem(it.key, {
-                              proyectoId: nuevoProyectoId,
-                              etapaId: etapaSigueValida ? it.etapaId : "",
-                            });
-                          }}
+                          onChange={(e) => handleProyectoChange(it, e.target.value)}
                           className={`${inputClass} min-w-[180px]`}
                         >
                           {proyectosSeleccionados.map((pid) => {
@@ -698,15 +812,7 @@ function PasoMaterialRevisar({
                     <td className="px-3 py-2">
                       <select
                         value={it.etapaId}
-                        onChange={(e) => {
-                          const nuevaEtapaId = e.target.value;
-                          // El catálogo de materiales depende de la etapa —
-                          // se limpia el material al cambiarla para que el
-                          // desplegable de sugerencias de la nueva etapa
-                          // aparezca (si no, el campo ya tiene texto y el
-                          // navegador no lo abre solo).
-                          actualizarItem(it.key, { etapaId: nuevaEtapaId, material: "", unidad: "" });
-                        }}
+                        onChange={(e) => handleEtapaChange(it, e.target.value)}
                         className={`${inputClass} min-w-[220px]`}
                       >
                         <option value="">Sin etapa</option>
