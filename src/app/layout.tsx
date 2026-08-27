@@ -20,6 +20,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Casas Casablanca",
   description: "Seguimiento de construcción de casas",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon-512.png",
+    apple: "/icon-192.png",
+  },
+  appleWebApp: {
+    // iOS no lee el manifest para el modo standalone — necesita estos meta
+    // tags propios para abrir sin barra de navegador al agregar a inicio.
+    capable: true,
+    statusBarStyle: "default",
+    title: "Casas Casablanca",
+  },
 };
 
 export default async function RootLayout({
