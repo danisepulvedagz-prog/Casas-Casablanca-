@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Roboto, Geist_Mono } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/login/actions";
+import { obtenerRol } from "@/lib/auth";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -43,6 +44,8 @@ export default async function RootLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const esAdmin = user ? (await obtenerRol(supabase, user.id)) === "admin" : false;
+  const inicioHref = esAdmin || !user ? "/proyectos" : "/gastos/nuevo";
 
   return (
     <html
@@ -52,7 +55,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-black">
         <header className="border-b border-[var(--header-border)] bg-white dark:bg-zinc-950">
           <nav className="mx-auto flex max-w-5xl items-center gap-8 px-6 py-5">
-            <Link href="/proyectos" className="shrink-0">
+            <Link href={inicioHref} className="shrink-0">
               <Image
                 src="/logo-casas-casablanca.png"
                 alt="Casas Casablanca"
@@ -70,12 +73,14 @@ export default async function RootLayout({
                 className="hidden h-10 w-auto dark:block"
               />
             </Link>
-            <Link
-              href="/proyectos"
-              className="text-sm font-light uppercase tracking-wide text-zinc-700 transition-colors hover:text-brand dark:text-zinc-300"
-            >
-              Proyectos
-            </Link>
+            {esAdmin && (
+              <Link
+                href="/proyectos"
+                className="text-sm font-light uppercase tracking-wide text-zinc-700 transition-colors hover:text-brand dark:text-zinc-300"
+              >
+                Proyectos
+              </Link>
+            )}
             <Link
               href="/gastos/nuevo"
               className="text-sm font-light uppercase tracking-wide text-zinc-700 transition-colors hover:text-brand dark:text-zinc-300"

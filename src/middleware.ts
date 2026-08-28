@@ -1,10 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { obtenerRol } from "@/lib/auth";
+import type { Database } from "@/lib/supabase/types";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -31,6 +33,23 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Un "usuario" normal solo puede usar Agregar gasto y el Catálogo — todo
+  // lo demás (proyectos, presupuestos, etc.) rebota igual si escribe la URL
+  // directo, no basta con esconder los links del nav.
+  if (user) {
+    const rol = await obtenerRol(supabase, user.id);
+    const pathname = request.nextUrl.pathname;
+    const rutaPermitida =
+      pathname === "/login" ||
+      pathname === "/gastos/nuevo" ||
+      pathname.startsWith("/catalogo-materiales");
+    if (rol === "usuario" && !rutaPermitida) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/gastos/nuevo";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;

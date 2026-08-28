@@ -9,6 +9,7 @@ export type TipoTecho = "Mediterráneo" | "Inclinado";
 export type OpcionTechoInclinado = "Teja asfáltica" | "Zinc prepintado";
 export type EscalaPor = "m2" | "banos" | "fijo";
 export type CategoriaGasto = "Material" | "Mano de Obra";
+export type Rol = "admin" | "usuario";
 
 export interface Database {
   public: {
@@ -289,6 +290,21 @@ export interface Database {
           foto_url?: string | null;
           monto_total?: number | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      profiles: {
+        Row: {
+          id: string;
+          role: Rol;
+        };
+        Insert: {
+          id: string;
+          role?: Rol;
+        };
+        Update: {
+          id?: string;
+          role?: Rol;
         };
         Relationships: [];
       };
