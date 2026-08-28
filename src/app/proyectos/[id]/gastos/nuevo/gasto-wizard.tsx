@@ -36,6 +36,54 @@ const inputClass =
 const labelClass = "block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1";
 const today = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Las fotos de celular (sobre todo iPhone) pueden pesar varios MB, y al
+ * convertirlas a base64 para mandarlas a la IA el tamaño crece ~35% más —
+ * fácil pasarse del límite de la Server Action. Se reescalan a un máximo de
+ * 2000px y se recomprimen a JPEG en el navegador antes de subir; de paso
+ * esto reescribe cualquier HEIC (que Safari sí puede decodificar vía
+ * <canvas>, a diferencia de la mayoría de los otros navegadores) a un
+ * formato que la IA sí soporta. Los PDF y GIF se mandan tal cual.
+ */
+function comprimirImagen(file: File, maxDim = 2000, calidad = 0.82): Promise<File> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith("image/") || file.type === "image/gif") {
+      resolve(file);
+      return;
+    }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { width, height } = img;
+      if (width <= maxDim && height <= maxDim && file.size < 4 * 1024 * 1024) {
+        resolve(file);
+        return;
+      }
+      const escala = Math.min(1, maxDim / Math.max(width, height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(width * escala);
+      canvas.height = Math.round(height * escala);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => resolve(blob ? new File([blob], file.name, { type: "image/jpeg" }) : file),
+        "image/jpeg",
+        calidad
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
 function archivoABase64(file: File): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -348,7 +396,8 @@ function PasoMaterialSubirFoto({
 
     startExtraccion(async () => {
       try {
-        const { base64, mimeType } = await archivoABase64(file);
+        const comprimido = await comprimirImagen(file);
+        const { base64, mimeType } = await archivoABase64(comprimido);
         const resultado = await extraerFactura(base64, mimeType, proyectoId);
         if ("error" in resultado) {
           setError(resultado.error);
@@ -1095,7 +1144,8 @@ function PasoTransferenciaSubirFoto({
 
     startExtraccion(async () => {
       try {
-        const { base64, mimeType } = await archivoABase64(file);
+        const comprimido = await comprimirImagen(file);
+        const { base64, mimeType } = await archivoABase64(comprimido);
         const resultado = await extraerTransferencia(base64, mimeType);
         if ("error" in resultado) {
           setError(resultado.error);
