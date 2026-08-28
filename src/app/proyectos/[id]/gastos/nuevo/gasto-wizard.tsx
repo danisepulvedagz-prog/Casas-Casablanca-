@@ -465,11 +465,23 @@ function PasoMaterialRevisar({
     setProyectosSeleccionados((prev) => {
       if (prev.includes(pid)) {
         if (prev.length === 1) return prev; // siempre debe quedar al menos uno
-        // Los ítems que estaban en ese proyecto vuelven al proyecto principal.
+        // Los ítems que estaban en ese proyecto se mueven a otro de los que
+        // queden marcados — al principal si sigue marcado, si no al primero
+        // que quede (ej. si se desmarca justo el proyecto principal porque
+        // se eligió mal al empezar). La etapa se conserva si sigue siendo
+        // válida en el nuevo proyecto, para no hacer perder el trabajo ya
+        // hecho por un simple cambio de proyecto.
+        const restantes = prev.filter((id) => id !== pid);
+        const proyectoDestino = restantes.includes(proyectoId) ? proyectoId : restantes[0];
+        const etapasDestino = etapasPorProyecto[proyectoDestino] ?? etapas;
         setItems((prevItems) =>
-          prevItems.map((it) => (it.proyectoId === pid ? { ...it, proyectoId, etapaId: "" } : it))
+          prevItems.map((it) => {
+            if (it.proyectoId !== pid) return it;
+            const etapaSigueValida = etapasDestino.some((et) => String(et.id) === it.etapaId);
+            return { ...it, proyectoId: proyectoDestino, etapaId: etapaSigueValida ? it.etapaId : "" };
+          })
         );
-        return prev.filter((id) => id !== pid);
+        return restantes;
       }
       return [...prev, pid];
     });
@@ -1209,10 +1221,20 @@ function PasoTransferenciaRevisar({
     setProyectosSeleccionados((prev) => {
       if (prev.includes(pid)) {
         if (prev.length === 1) return prev; // siempre debe quedar al menos uno
+        // Ver el mismo comentario en PasoMaterialRevisar: los ítems se mueven
+        // a otro proyecto que siga marcado (no siempre al principal), y la
+        // etapa se conserva si sigue siendo válida ahí.
+        const restantes = prev.filter((id) => id !== pid);
+        const proyectoDestino = restantes.includes(proyectoId) ? proyectoId : restantes[0];
+        const etapasDestino = etapasPorProyecto[proyectoDestino] ?? etapas;
         setItems((prevItems) =>
-          prevItems.map((it) => (it.proyectoId === pid ? { ...it, proyectoId, etapaId: "" } : it))
+          prevItems.map((it) => {
+            if (it.proyectoId !== pid) return it;
+            const etapaSigueValida = etapasDestino.some((et) => String(et.id) === it.etapaId);
+            return { ...it, proyectoId: proyectoDestino, etapaId: etapaSigueValida ? it.etapaId : "" };
+          })
         );
-        return prev.filter((id) => id !== pid);
+        return restantes;
       }
       return [...prev, pid];
     });
