@@ -866,14 +866,14 @@ function PasoMaterialRevisar({
                         type="number"
                         value={it.cantidad}
                         onChange={(e) => handleCantidadChange(it, e.target.value)}
-                        className={`${inputClass} w-24`}
+                        className={`${inputClass} !w-24`}
                       />
                     </td>
                     <td className="px-3 py-2">
                       <input
                         value={it.unidad}
                         onChange={(e) => actualizarItem(it.key, { unidad: e.target.value })}
-                        className={`${inputClass} w-24`}
+                        className={`${inputClass} !w-24`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -881,7 +881,7 @@ function PasoMaterialRevisar({
                         type="number"
                         value={it.montoTotal}
                         onChange={(e) => actualizarItem(it.key, { montoTotal: e.target.value })}
-                        className={`${inputClass} w-40`}
+                        className={`${inputClass} !w-40`}
                       />
                     </td>
                     {hayVariosProyectos && (
@@ -1543,14 +1543,14 @@ function PasoTransferenciaRevisar({
                                   : it.montoTotal;
                               actualizarItem(it.key, { cantidad: nuevaCantidad, montoTotal: nuevoMonto });
                             }}
-                            className={`${inputClass} w-24`}
+                            className={`${inputClass} !w-24`}
                           />
                         </td>
                         <td className="px-3 py-2">
                           <input
                             value={it.unidad}
                             onChange={(e) => actualizarItem(it.key, { unidad: e.target.value })}
-                            className={`${inputClass} w-24`}
+                            className={`${inputClass} !w-24`}
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -1558,7 +1558,7 @@ function PasoTransferenciaRevisar({
                             type="number"
                             value={it.montoTotal}
                             onChange={(e) => actualizarItem(it.key, { montoTotal: e.target.value })}
-                            className={`${inputClass} w-40`}
+                            className={`${inputClass} !w-40`}
                           />
                         </td>
                         {hayVariosProyectos && (
