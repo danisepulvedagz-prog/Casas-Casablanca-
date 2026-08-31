@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useFormStatus } from "react-dom";
 import {
   buscarFacturaDuplicada,
   buscarTransferenciaDuplicada,
@@ -112,8 +111,12 @@ function archivoABase64(file: File): Promise<{ base64: string; mimeType: string 
   });
 }
 
-function SubmitButton({ label }: { label: string }) {
-  const { pending } = useFormStatus();
+// No usa useFormStatus() a propósito — estos forms disparan el guardado
+// desde onSubmit (no action=...) para evitar que React resetee el <form> al
+// terminar (ver el comentario en handleSubmit de PasoMaterialRevisar), así
+// que el pending sale directo del useActionState de cada Paso, pasado como
+// prop.
+function SubmitButton({ label, pending }: { label: string; pending: boolean }) {
   return (
     <button type="submit" disabled={pending} className={BTN_PRIMARY}>
       {pending ? "Guardando..." : label}
@@ -500,7 +503,7 @@ function PasoMaterialRevisar({
   const [cabecera, setCabecera] = useState<CabeceraFactura>(datos.cabecera);
   const [proyectosSeleccionados, setProyectosSeleccionados] = useState<string[]>([proyectoId]);
   const [facturaDuplicada, setFacturaDuplicada] = useState<FacturaDuplicada | null>(null);
-  const [state, formAction] = useActionState<ActionState, FormData>(
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     crearFacturaConGastos.bind(null, proyectoId),
     {}
   );
@@ -601,7 +604,14 @@ function PasoMaterialRevisar({
     actualizarItem(it.key, { etapaId: nuevaEtapaId, material: "", unidad: "" });
   }
 
-  function handleSubmit(formData: FormData) {
+  // React 19 resetea el <form> a nivel del navegador apenas termina un
+  // action="..." — éxito o error, da lo mismo — y eso pisa los <select> de
+  // cada ítem aunque estén controlados por React (a Sin etapa/vacío), por
+  // más que el estado items siga sin tocar. Se arma el FormData a mano y se
+  // llama a formAction() desde onSubmit en vez de usar action={...}, así el
+  // form nunca queda wireado como "form action" y React no lo resetea solo.
+  function handleSubmit() {
+    const formData = new FormData();
     formData.set("proveedor", cabecera.proveedor);
     formData.set("n_documento", cabecera.nDocumento);
     formData.set("fecha", cabecera.fecha);
@@ -636,7 +646,13 @@ function PasoMaterialRevisar({
         La IA puede equivocarse — corrige lo que haga falta. Nada se guarda hasta que apretes &quot;Guardar&quot;.
       </p>
 
-      <form action={handleSubmit} className="grid gap-6">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+        className="grid gap-6"
+      >
         {state.error && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
             {state.error}
@@ -947,7 +963,10 @@ function PasoMaterialRevisar({
         </div>
 
         <div>
-          <SubmitButton label={`Guardar ${items.length} gasto${items.length === 1 ? "" : "s"}`} />
+          <SubmitButton
+            label={`Guardar ${items.length} gasto${items.length === 1 ? "" : "s"}`}
+            pending={isPending}
+          />
         </div>
       </form>
     </div>
@@ -969,7 +988,7 @@ function PasoMaterialManual({
   materialInicial?: string;
   onVolver: () => void;
 }) {
-  const [state, formAction] = useActionState<ActionState, FormData>(
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     crearFacturaConGastos.bind(null, proyectoId),
     {}
   );
@@ -1025,7 +1044,13 @@ function PasoMaterialManual({
         </button>
       )}
       <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">Agregar material a mano</h2>
-      <form action={handleSubmit} className="grid max-w-md gap-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit(new FormData(e.currentTarget));
+        }}
+        className="grid max-w-md gap-4"
+      >
         {state.error && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
             {state.error}
@@ -1142,7 +1167,7 @@ function PasoMaterialManual({
           <textarea id="notas" name="notas" rows={2} className={inputClass} />
         </div>
         <div>
-          <SubmitButton label="Registrar gasto" />
+          <SubmitButton label="Registrar gasto" pending={isPending} />
         </div>
       </form>
     </div>
@@ -1252,7 +1277,7 @@ function PasoTransferenciaRevisar({
   datos: DatosTransferenciaPendiente;
   onVolver: () => void;
 }) {
-  const [state, formAction] = useActionState<ActionState, FormData>(
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     crearTransferenciaConGasto.bind(null, proyectoId),
     {}
   );
@@ -1322,7 +1347,11 @@ function PasoTransferenciaRevisar({
 
   const hayVariosProyectos = esMaterial && proyectosSeleccionados.length > 1;
 
-  function handleSubmit(formData: FormData) {
+  // Ver el comentario en handleSubmit de PasoMaterialRevisar: se arma el
+  // FormData a mano y se dispara desde onSubmit, no action=..., para que
+  // React no resetee el form (y los <select> de etapa/proyecto) al terminar.
+  function handleSubmit() {
+    const formData = new FormData();
     formData.set("categoria", categoria);
     formData.set("destinatario", destinatario);
     formData.set("n_operacion", nOperacion);
@@ -1364,7 +1393,13 @@ function PasoTransferenciaRevisar({
         La IA puede equivocarse — corrige lo que haga falta. Nada se guarda hasta que apretes &quot;Guardar&quot;.
       </p>
 
-      <form action={handleSubmit} className="grid gap-6">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+        className="grid gap-6"
+      >
         {state.error && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
             {state.error}
@@ -1615,7 +1650,7 @@ function PasoTransferenciaRevisar({
         )}
 
         <div>
-          <SubmitButton label="Registrar gasto" />
+          <SubmitButton label="Registrar gasto" pending={isPending} />
         </div>
       </form>
     </div>
