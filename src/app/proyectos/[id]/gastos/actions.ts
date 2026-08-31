@@ -658,8 +658,12 @@ export async function buscarFacturaDuplicada(
   const { data } = await supabase
     .from("facturas")
     .select("id, fecha, monto_total")
-    .ilike("proveedor", proveedorTrim)
-    .ilike("n_documento", nDocumentoTrim)
+    // ilike sin comodines exige coincidencia EXACTA (salvo mayúsculas) — con
+    // %...% queda como "contiene", más tolerante a que la IA transcriba el
+    // proveedor con espacios/tildes/puntos levemente distintos entre una
+    // subida y otra del mismo documento.
+    .ilike("proveedor", `%${proveedorTrim}%`)
+    .ilike("n_documento", `%${nDocumentoTrim}%`)
     .limit(1)
     .maybeSingle();
 
@@ -688,8 +692,10 @@ export async function buscarTransferenciaDuplicada(
   const { data } = await supabase
     .from("transferencias")
     .select("id, fecha, monto_total")
-    .ilike("destinatario", destinatarioTrim)
-    .ilike("n_operacion", nOperacionTrim)
+    // Ver el mismo comentario en buscarFacturaDuplicada: sin %...% ilike
+    // exige coincidencia exacta, muy estricta para texto leído por IA.
+    .ilike("destinatario", `%${destinatarioTrim}%`)
+    .ilike("n_operacion", `%${nOperacionTrim}%`)
     .limit(1)
     .maybeSingle();
 

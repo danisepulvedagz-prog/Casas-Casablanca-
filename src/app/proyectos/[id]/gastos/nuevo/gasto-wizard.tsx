@@ -507,10 +507,17 @@ function PasoMaterialRevisar({
 
   // Advertencia blanda: si ya existe una factura con este mismo proveedor +
   // n° documento, se avisa (sin bloquear) para evitar cargar la misma boleta
-  // dos veces por error.
+  // dos veces por error. El primer chequeo (proveedor/n° documento recién
+  // llegados de la IA) corre sin espera — si se deja el debounce de 500ms
+  // también para ese primer caso, alguien que reconoce la factura y aprieta
+  // "Guardar" rápido puede alcanzar a guardar antes de que la advertencia
+  // llegue a aparecer.
+  const primerChequeoRef = useRef(true);
   useEffect(() => {
     const proveedor = cabecera.proveedor;
     const nDocumento = cabecera.nDocumento;
+    const espera = primerChequeoRef.current ? 0 : 500;
+    primerChequeoRef.current = false;
     let cancelado = false;
     const timeout = setTimeout(async () => {
       if (cancelado) return;
@@ -520,7 +527,7 @@ function PasoMaterialRevisar({
       }
       const resultado = await buscarFacturaDuplicada(proveedor, nDocumento);
       if (!cancelado) setFacturaDuplicada(resultado);
-    }, 500);
+    }, espera);
     return () => {
       cancelado = true;
       clearTimeout(timeout);
@@ -1259,7 +1266,12 @@ function PasoTransferenciaRevisar({
   const [transferenciaDuplicada, setTransferenciaDuplicada] = useState<TransferenciaDuplicada | null>(null);
 
   // Advertencia blanda: mismo destinatario + n° operación ya registrados.
+  // El primer chequeo (recién llegado de la IA) corre sin espera — ver el
+  // comentario equivalente en PasoMaterialRevisar.
+  const primerChequeoTransferenciaRef = useRef(true);
   useEffect(() => {
+    const espera = primerChequeoTransferenciaRef.current ? 0 : 500;
+    primerChequeoTransferenciaRef.current = false;
     let cancelado = false;
     const timeout = setTimeout(async () => {
       if (cancelado) return;
@@ -1269,7 +1281,7 @@ function PasoTransferenciaRevisar({
       }
       const resultado = await buscarTransferenciaDuplicada(destinatario, nOperacion);
       if (!cancelado) setTransferenciaDuplicada(resultado);
-    }, 500);
+    }, espera);
     return () => {
       cancelado = true;
       clearTimeout(timeout);
