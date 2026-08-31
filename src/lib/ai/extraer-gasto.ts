@@ -73,6 +73,8 @@ Para cada ítem que identifiques en el documento:
   son dos nombres para lo mismo, usa siempre "Perfiles de borde";
   "Metalcon Port 40R", "Metalcon portante" o "Perfiles omega" (cualquiera de estos tres nombres) es el mismo
   producto que "Perfil portante cielo" de la etapa Cielo falso — usa siempre "Perfil portante cielo";
+  "Pino verde bruto 2x4" (o cualquier variante de "pino verde" en dimensión 2x4) es "Madera deck" de la
+  etapa Deck exterior — es la madera para construir el deck, no confundir con la madera de estructura;
   "Fibrocemento 6mm 1.2 x 2.4 mts base cerámica Pizarreño" (o variantes de medidas/espesor de fibrocemento
   Pizarreño) es el mismo producto que "Internit" de la etapa Volcanita muros;
   "Disco de sierra 7 1/4\" 30 dientes eje 16mm" o "Disco diamantado turbo corta porcelanato" (o cualquier
