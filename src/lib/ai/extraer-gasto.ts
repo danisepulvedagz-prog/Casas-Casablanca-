@@ -69,6 +69,8 @@ Para cada ítem que identifiques en el documento:
   adhesivo/pegamento para tuberías PVC, así que va con el "Vinilit" de la etapa Sanitarios, no el de Electricidad;
   "Metalcon perfil AT 25 x 20 x 4 x..." (o cualquier variante de medidas de ese perfil AT) es el mismo producto
   que "Perfiles de borde" de la etapa Cielo falso — son los perfiles metálicos de borde del cielo falso;
+  "Perfil perimetral" o "perfiles perimetrales" de cielo falso es el mismo producto que "Perfiles de borde" —
+  son dos nombres para lo mismo, usa siempre "Perfiles de borde";
   "Fibrocemento 6mm 1.2 x 2.4 mts base cerámica Pizarreño" (o variantes de medidas/espesor de fibrocemento
   Pizarreño) es el mismo producto que "Internit" de la etapa Volcanita muros;
   "Disco de sierra 7 1/4\" 30 dientes eje 16mm" o "Disco diamantado turbo corta porcelanato" (o cualquier
