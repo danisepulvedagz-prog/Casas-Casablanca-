@@ -84,6 +84,22 @@ function comprimirImagen(file: File, maxDim = 2000, calidad = 0.82): Promise<Fil
   });
 }
 
+// Límite del lado del cliente, con margen respecto al bodySizeLimit real de
+// las Server Actions (ver next.config.ts) — si comprimirImagen() no logró
+// achicar la foto lo suficiente (ej. no se pudo decodificar un HEIC y se
+// mandó el archivo original tal cual), es mejor avisar con un mensaje
+// específico y accionable acá mismo que dejar que el servidor falle con el
+// error genérico y sin detalle que Next.js muestra en producción.
+const MAX_BASE64_CHARS = 7_000_000; // ~5.25 MB del archivo real
+
+function verificarTamano(base64: string, archivoFinal: File) {
+  if (base64.length <= MAX_BASE64_CHARS) return;
+  const pesoMb = (archivoFinal.size / 1024 / 1024).toFixed(1);
+  throw new Error(
+    `La foto pesa demasiado incluso después de comprimirla (${pesoMb} MB). Prueba sacándole una foto solo a la factura (sin el resto de la mesa/fondo) o con menos zoom.`
+  );
+}
+
 function archivoABase64(file: File): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -398,6 +414,7 @@ function PasoMaterialSubirFoto({
       try {
         const comprimido = await comprimirImagen(file);
         const { base64, mimeType } = await archivoABase64(comprimido);
+        verificarTamano(base64, comprimido);
         const resultado = await extraerFactura(base64, mimeType, proyectoId);
         if ("error" in resultado) {
           setError(resultado.error);
@@ -1146,6 +1163,7 @@ function PasoTransferenciaSubirFoto({
       try {
         const comprimido = await comprimirImagen(file);
         const { base64, mimeType } = await archivoABase64(comprimido);
+        verificarTamano(base64, comprimido);
         const resultado = await extraerTransferencia(base64, mimeType);
         if ("error" in resultado) {
           setError(resultado.error);
