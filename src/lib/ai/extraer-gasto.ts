@@ -80,7 +80,8 @@ Para cada ítem que identifiques en el documento:
   "Disco de sierra 7 1/4\" 30 dientes eje 16mm" o "Disco diamantado turbo corta porcelanato" (o cualquier
   variante de medidas/dientes/eje de disco de corte para sierra circular o amoladora) es el mismo producto
   que "Discos" de la etapa Instalación porcelanato;
-  "Adisol" es el mismo producto que "Puente adherente" de la etapa Afinado de piso;
+  "Adisol" (incluida la variante "Adisol Latex", aunque venga en una boleta junto a brochas, rodillos u
+  otros insumos de pintura) es el mismo producto que "Puente adherente" de la etapa Afinado de piso;
   una línea de boleta que diga "Puerta Ext" seguido de una especie de madera como "Pino Italia" (ej. "PUERTA
   EXT PINO ITALIA 80X200") es en realidad una "Puerta Interior" de la etapa Puertas interiores y exteriores
   — a pesar de decir "Ext" en la abreviatura, ese producto puntual siempre es la puerta interior, no la
