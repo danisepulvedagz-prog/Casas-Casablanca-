@@ -87,7 +87,9 @@ Para cada ítem que identifiques en el documento:
   exterior; la puerta exterior real casi siempre aparece en las boletas como "Puerta de Lenga" (o variantes
   con esa madera) — usa "Puerta Exterior" del catálogo para esa;
   "Tornillo Chipboard 14 (6.0) x 100/60" y "Turbo 4\"" son el mismo tornillo con dos nombres distintos —
-  usa siempre "Turbo 4\"").
+  usa siempre "Turbo 4\"";
+  "Tornillo Zincado CRS B-Phillips 6-9 x 1 5/8" (o variantes con esas mismas medidas) es el mismo producto
+  que "Tornillo CRS 6-9 x 1 5/8" del catálogo — usa siempre el nombre del catálogo).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
