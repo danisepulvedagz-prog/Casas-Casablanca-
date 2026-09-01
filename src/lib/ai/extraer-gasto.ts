@@ -88,7 +88,9 @@ Para cada ítem que identifiques en el documento:
   con esa madera) — usa "Puerta Exterior" del catálogo para esa;
   "Tornillo Chipboard 14 (6.0) x 100/60" y "Turbo 4\"" son el mismo tornillo con dos nombres distintos —
   usa siempre "Turbo 4\""; de la misma forma, "Tornillo Chipboard 14 (6.0) x 160/72" es "Turbo 6\"", y
-  "Tornillo Chipboard 14 (6.0) x 140/72" es "Turbo 5 1/2\"" — siempre usa el nombre "Turbo ..." del catálogo;
+  "Tornillo Chipboard 14 (6.0) x 140/72" es "Turbo 5 1/2\""; "Tornillo Chipboard 8 (4.0) x 25" es "Turbo 1\"";
+  "Tornillo Chipboard 8 (4.0) x 40" es "Turbo 1,5\"" — en todos estos casos de tornillos Chipboard/Turbo,
+  siempre usa el nombre "Turbo ..." del catálogo;
   "Tornillo Zincado CRS B-Phillips 6-9 x 1 5/8" (o variantes con esas mismas medidas) es el mismo producto
   que "Tornillo CRS 6-9 x 1 5/8" del catálogo — usa siempre el nombre del catálogo).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
