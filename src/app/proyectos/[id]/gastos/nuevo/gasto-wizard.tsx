@@ -36,29 +36,21 @@ const labelClass = "block text-sm font-medium text-zinc-700 dark:text-zinc-300 m
 const today = () => new Date().toISOString().slice(0, 10);
 
 /**
- * Las fotos de celular (sobre todo iPhone) pueden pesar varios MB, y al
- * convertirlas a base64 para mandarlas a la IA el tamaño crece ~35% más —
- * fácil pasarse del límite de la Server Action. Se reescalan a un máximo de
- * 2000px y se recomprimen a JPEG en el navegador antes de subir; de paso
- * esto reescribe cualquier HEIC (que Safari sí puede decodificar vía
- * <canvas>, a diferencia de la mayoría de los otros navegadores) a un
- * formato que la IA sí soporta. Los PDF y GIF se mandan tal cual.
+ * Vercel impone un límite duro de ~4.5 MB al cuerpo de la petición de una
+ * Server Action — a diferencia del bodySizeLimit de next.config.ts (que sí
+ * es configurable), este NO se puede subir. Se apunta bastante por debajo
+ * de eso para dejar margen al resto de la petición (RSC framing, otros
+ * argumentos) y a que base64 pesa ~35% más que el archivo real.
  */
-function comprimirImagen(file: File, maxDim = 2000, calidad = 0.82): Promise<File> {
+const LIMITE_BYTES_ARCHIVO = 3 * 1024 * 1024; // ~3 MB reales -> ~4 MB en base64
+
+function comprimirEn(file: File, maxDim: number, calidad: number): Promise<File> {
   return new Promise((resolve) => {
-    if (!file.type.startsWith("image/") || file.type === "image/gif") {
-      resolve(file);
-      return;
-    }
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
       const { width, height } = img;
-      if (width <= maxDim && height <= maxDim && file.size < 4 * 1024 * 1024) {
-        resolve(file);
-        return;
-      }
       const escala = Math.min(1, maxDim / Math.max(width, height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(width * escala);
@@ -83,13 +75,42 @@ function comprimirImagen(file: File, maxDim = 2000, calidad = 0.82): Promise<Fil
   });
 }
 
-// Límite del lado del cliente, con margen respecto al bodySizeLimit real de
-// las Server Actions (ver next.config.ts) — si comprimirImagen() no logró
-// achicar la foto lo suficiente (ej. no se pudo decodificar un HEIC y se
-// mandó el archivo original tal cual), es mejor avisar con un mensaje
-// específico y accionable acá mismo que dejar que el servidor falle con el
-// error genérico y sin detalle que Next.js muestra en producción.
-const MAX_BASE64_CHARS = 7_000_000; // ~5.25 MB del archivo real
+/**
+ * Las fotos de celular (sobre todo iPhone) pueden pesar varios MB. Se
+ * reescalan y recomprimen a JPEG en el navegador antes de subir — de paso
+ * esto reescribe cualquier HEIC (que Safari sí puede decodificar vía
+ * <canvas>, a diferencia de la mayoría de los otros navegadores) a un
+ * formato que la IA sí soporta. Si tras el primer intento la foto sigue
+ * pesando demasiado (ej. una foto muy detallada, o un HEIC que no se pudo
+ * decodificar y se mandó el original tal cual), se reintenta con pasadas
+ * cada vez más agresivas antes de rendirse. Los PDF y GIF se mandan tal cual
+ * (no se pueden recomprimir en el navegador).
+ */
+async function comprimirImagen(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
+
+  const pasadas: Array<{ maxDim: number; calidad: number }> = [
+    { maxDim: 2000, calidad: 0.82 },
+    { maxDim: 1600, calidad: 0.7 },
+    { maxDim: 1200, calidad: 0.55 },
+    { maxDim: 900, calidad: 0.45 },
+  ];
+
+  let mejor = file;
+  for (const { maxDim, calidad } of pasadas) {
+    const resultado = await comprimirEn(mejor, maxDim, calidad);
+    mejor = resultado;
+    if (resultado.size <= LIMITE_BYTES_ARCHIVO) break;
+  }
+  return mejor;
+}
+
+// Último control antes de mandar el archivo al servidor — si ni la pasada
+// más agresiva de comprimirImagen() logró bajar del límite real de Vercel,
+// es mejor avisar con un mensaje específico y accionable acá mismo que
+// dejar que el servidor falle con el error genérico y sin detalle que
+// Next.js muestra en producción.
+const MAX_BASE64_CHARS = 4_000_000; // ~3 MB del archivo real
 
 function verificarTamano(base64: string, archivoFinal: File) {
   if (base64.length <= MAX_BASE64_CHARS) return;
