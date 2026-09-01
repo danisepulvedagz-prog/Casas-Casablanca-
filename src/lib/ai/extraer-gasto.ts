@@ -85,7 +85,9 @@ Para cada ítem que identifiques en el documento:
   EXT PINO ITALIA 80X200") es en realidad una "Puerta Interior" de la etapa Puertas interiores y exteriores
   — a pesar de decir "Ext" en la abreviatura, ese producto puntual siempre es la puerta interior, no la
   exterior; la puerta exterior real casi siempre aparece en las boletas como "Puerta de Lenga" (o variantes
-  con esa madera) — usa "Puerta Exterior" del catálogo para esa).
+  con esa madera) — usa "Puerta Exterior" del catálogo para esa;
+  "Tornillo Chipboard 14 (6.0) x 100/60" y "Turbo 4\"" son el mismo tornillo con dos nombres distintos —
+  usa siempre "Turbo 4\"").
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
