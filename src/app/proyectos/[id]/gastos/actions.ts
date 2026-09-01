@@ -300,13 +300,24 @@ export type ExtraccionFactura = { data: FacturaExtraida } | { error: string };
  * ítem separado y sugiere a qué etapa pertenece cada uno (comparando contra
  * el catálogo real de etapas del proyecto). El usuario siempre revisa/edita
  * la lista antes de guardar — esto nunca crea gastos directamente.
+ *
+ * Recibe la foto dentro de un FormData (no como string base64 suelto): al
+ * mandar un string base64 muy largo como argumento directo de una Server
+ * Action, React lo trocea internamente en arrays anidados para transmitirlo
+ * y con fotos de celular eso dispara "Maximum array nesting exceeded" en
+ * producción. Un File dentro de FormData viaja como binario nativo del
+ * navegador y evita ese problema — la conversión a base64 se hace acá, del
+ * lado del servidor, recién para mandársela a la IA.
  */
-export async function extraerFactura(
-  imagenBase64: string,
-  mimeType: string,
-  proyectoId: string
-): Promise<ExtraccionFactura> {
+export async function extraerFactura(formData: FormData): Promise<ExtraccionFactura> {
   try {
+    const archivo = formData.get("archivo");
+    const proyectoId = String(formData.get("proyectoId") ?? "");
+    if (!(archivo instanceof File)) return { error: "No se recibió ninguna imagen." };
+
+    const imagenBase64 = Buffer.from(await archivo.arrayBuffer()).toString("base64");
+    const mimeType = archivo.type || "image/jpeg";
+
     const supabase = await createClient();
     const { data: proyecto } = await supabase
       .from("proyectos")
@@ -347,11 +358,14 @@ export async function extraerFactura(
 
 export type ExtraccionTransferencia = { data: DatosTransferenciaExtraidos } | { error: string };
 
-export async function extraerTransferencia(
-  imagenBase64: string,
-  mimeType: string
-): Promise<ExtraccionTransferencia> {
+export async function extraerTransferencia(formData: FormData): Promise<ExtraccionTransferencia> {
   try {
+    const archivo = formData.get("archivo");
+    if (!(archivo instanceof File)) return { error: "No se recibió ninguna imagen." };
+
+    const imagenBase64 = Buffer.from(await archivo.arrayBuffer()).toString("base64");
+    const mimeType = archivo.type || "image/jpeg";
+
     const data = await extraerDatosTransferencia(imagenBase64, mimeType);
     return { data };
   } catch (err) {

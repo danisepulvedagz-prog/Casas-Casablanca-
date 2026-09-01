@@ -105,31 +105,22 @@ async function comprimirImagen(file: File): Promise<File> {
   return mejor;
 }
 
-// Último control antes de mandar el archivo al servidor — si ni la pasada
-// más agresiva de comprimirImagen() logró bajar del límite real de Vercel,
-// es mejor avisar con un mensaje específico y accionable acá mismo que
-// dejar que el servidor falle con el error genérico y sin detalle que
-// Next.js muestra en producción.
-const MAX_BASE64_CHARS = 4_000_000; // ~3 MB del archivo real
+// Último control antes de mandar el archivo al servidor (dentro de un
+// FormData, como binario — ver el comentario de extraerFactura en
+// actions.ts) — si ni la pasada más agresiva de comprimirImagen() logró
+// bajar del límite real de Vercel, es mejor avisar con un mensaje
+// específico y accionable acá mismo que dejar que el servidor falle con el
+// error genérico y sin detalle que Next.js muestra en producción. Los PDF
+// no pasan por comprimirImagen (no se pueden recomprimir en el navegador),
+// así que este control es lo único que los frena si vienen muy pesados.
+const LIMITE_BYTES_ENVIO = 4 * 1024 * 1024; // ~4 MB, con margen bajo el límite real de Vercel
 
-function verificarTamano(base64: string, archivoFinal: File) {
-  if (base64.length <= MAX_BASE64_CHARS) return;
+function verificarTamano(archivoFinal: File) {
+  if (archivoFinal.size <= LIMITE_BYTES_ENVIO) return;
   const pesoMb = (archivoFinal.size / 1024 / 1024).toFixed(1);
   throw new Error(
     `La foto pesa demasiado incluso después de comprimirla (${pesoMb} MB). Prueba sacándole una foto solo a la factura (sin el resto de la mesa/fondo) o con menos zoom.`
   );
-}
-
-function archivoABase64(file: File): Promise<{ base64: string; mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const resultado = String(reader.result ?? "");
-      resolve({ base64: resultado.split(",")[1] ?? "", mimeType: file.type || "image/jpeg" });
-    };
-    reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
-    reader.readAsDataURL(file);
-  });
 }
 
 // No usa useFormStatus() a propósito — estos forms disparan el guardado
@@ -437,9 +428,11 @@ function PasoMaterialSubirFoto({
     startExtraccion(async () => {
       try {
         const comprimido = await comprimirImagen(file);
-        const { base64, mimeType } = await archivoABase64(comprimido);
-        verificarTamano(base64, comprimido);
-        const resultado = await extraerFactura(base64, mimeType, proyectoId);
+        verificarTamano(comprimido);
+        const formData = new FormData();
+        formData.set("archivo", comprimido);
+        formData.set("proyectoId", proyectoId);
+        const resultado = await extraerFactura(formData);
         if ("error" in resultado) {
           setError(resultado.error);
           return;
@@ -1215,9 +1208,10 @@ function PasoTransferenciaSubirFoto({
     startExtraccion(async () => {
       try {
         const comprimido = await comprimirImagen(file);
-        const { base64, mimeType } = await archivoABase64(comprimido);
-        verificarTamano(base64, comprimido);
-        const resultado = await extraerTransferencia(base64, mimeType);
+        verificarTamano(comprimido);
+        const formData = new FormData();
+        formData.set("archivo", comprimido);
+        const resultado = await extraerTransferencia(formData);
         if ("error" in resultado) {
           setError(resultado.error);
           return;
