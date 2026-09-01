@@ -100,9 +100,10 @@ Para cada ítem que identifiques en el documento:
   "LARGO" es porque una es el marco horizontal y la otra el vertical: el LARGO más corto (~1100mm) es
   "Marcos de lenga horizontales" y el LARGO más largo (~2200mm, similar a la altura de una puerta) es
   "Marcos de lenga verticales", ambos de la etapa Puertas interiores y exteriores;
-  "VOLCANITA ST BR" (o cualquier variante de espesor/medida de volcanita estándar de bordes rebajados, sin
-  indicar que es para cielo) es la "Volcanita" genérica de muro, no "Volcanita cielo" — usa "Volcanita cielo"
-  solo si el documento o el contexto deja claro que es para cielo falso).
+  "VOLCANITA ST BR" (o cualquier variante de espesor/medida de volcanita estándar de bordes rebajados) es la
+  "Volcanita" genérica del catálogo — esa "Volcanita" sirve tanto para muro como para cielo, así que úsala
+  por defecto; usa "Volcanita cielo" solo si el documento especifica explícitamente que es un producto
+  distinto para cielo falso, no solo porque se vaya a instalar en el cielo).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
