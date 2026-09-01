@@ -113,7 +113,11 @@ Para cada ítem que identifiques en el documento:
   exterior y aleros — usa siempre "Tornillos 1 1/4"; "Tapacán 1x8" es el mismo producto que "Pino Cepillado
   1x8" (misma etapa) — usa siempre "Pino Cepillado 1x8"; "Barniz" es el mismo producto que "Pintura
   Cerestain" (misma etapa) — usa siempre "Pintura Cerestain"; "Cerestain Encina o natural" (aunque la boleta
-  la relacione con techumbre) también es "Pintura Cerestain" de la etapa Revestimiento exterior y aleros).
+  la relacione con techumbre) también es "Pintura Cerestain" de la etapa Revestimiento exterior y aleros;
+  "Insumos de limpieza" existe en dos etapas (Retiro de escombros y limpieza, y Limpieza interior) con el
+  mismo nombre y no se puede distinguir por el contenido de la boleta — por defecto usa "Limpieza interior",
+  salvo que el documento o el contexto dejen claro que es limpieza de escombros/obra gruesa durante la
+  construcción).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
