@@ -10,26 +10,26 @@ import {
   generarProyectoEtapas,
   modalidadesIncluidas,
 } from "@/lib/etapas";
-import { calcularRatiosPromedio, estimar } from "@/lib/calculadora-m2";
-import type {
-  Modalidad,
-  EstadoProyecto,
-  TipoTecho,
-  OpcionTechoInclinado,
-  Database,
-} from "@/lib/supabase/types";
-
-type Gasto = Database["public"]["Tables"]["gastos"]["Row"];
+import type { Modalidad, EstadoProyecto, TipoTecho, OpcionTechoInclinado } from "@/lib/supabase/types";
 
 export interface ActionState {
   error?: string;
 }
 
+// El presupuesto de la casa es el 80% de lo que el cliente firma en total
+// (Contrato + Anexo 1 + Anexo 2) — no es un campo libre.
+const PORCENTAJE_PRESUPUESTO = 0.8;
+
 function parseProyectoForm(formData: FormData) {
   const nombre = String(formData.get("nombre") ?? "").trim();
   const modalidad = String(formData.get("modalidad") ?? "") as Modalidad;
   const m2 = Number(formData.get("m2"));
-  const presupuesto_total = Number(formData.get("presupuesto_total"));
+  const contratoRaw = String(formData.get("contrato") ?? "").trim();
+  const contrato = contratoRaw ? Number(contratoRaw) : NaN;
+  const anexo1Raw = String(formData.get("anexo_1") ?? "").trim();
+  const anexo_1 = anexo1Raw ? Number(anexo1Raw) : 0;
+  const anexo2Raw = String(formData.get("anexo_2") ?? "").trim();
+  const anexo_2 = anexo2Raw ? Number(anexo2Raw) : 0;
   const fecha_inicio = String(formData.get("fecha_inicio") ?? "");
   const fecha_termino_estimada = String(formData.get("fecha_termino_estimada") ?? "") || null;
   const n_dormitorios = formData.get("n_dormitorios")
@@ -51,8 +51,11 @@ function parseProyectoForm(formData: FormData) {
     return { error: "Modalidad inválida." } as const;
   }
   if (!Number.isFinite(m2) || m2 <= 0) return { error: "Los m² deben ser un número mayor a 0." } as const;
-  if (!Number.isFinite(presupuesto_total) || presupuesto_total < 0) {
-    return { error: "El presupuesto debe ser un número válido." } as const;
+  if (!Number.isFinite(contrato) || contrato < 0) {
+    return { error: "El Contrato debe ser un número válido." } as const;
+  }
+  if (!Number.isFinite(anexo_1) || anexo_1 < 0 || !Number.isFinite(anexo_2) || anexo_2 < 0) {
+    return { error: "Los anexos deben ser números válidos (pueden quedar en 0)." } as const;
   }
   if (!fecha_inicio) return { error: "La fecha de inicio es obligatoria." } as const;
   if (n_banos != null && (!Number.isFinite(n_banos) || n_banos < 0 || Math.round(n_banos * 2) !== n_banos * 2)) {
@@ -64,11 +67,16 @@ function parseProyectoForm(formData: FormData) {
     return { error: "La opción de techo inclinado solo aplica si el tipo de techo es Inclinado." } as const;
   }
 
+  const presupuesto_total = Math.round(PORCENTAJE_PRESUPUESTO * (contrato + anexo_1 + anexo_2));
+
   return {
     values: {
       nombre,
       modalidad,
       m2,
+      contrato,
+      anexo_1,
+      anexo_2,
       presupuesto_total,
       fecha_inicio,
       fecha_termino_estimada,
@@ -215,95 +223,6 @@ async function sincronizarEtapaDeck(
   if (sinGasto.length > 0) {
     await supabase.from("proyecto_etapas").delete().eq("proyecto_id", proyectoId).in("etapa_id", sinGasto);
   }
-}
-
-export interface PresupuestoSugerido {
-  presupuesto: number;
-  proyectosConsiderados: number;
-}
-
-/**
- * Presupuesto teórico en base al promedio de costos de materiales de los
- * proyectos Terminados, acotado a las etapas que le corresponden a este
- * proyecto (según su modalidad y si tiene o no deck) para no mezclar costos
- * de etapas que ni siquiera va a tener. Por ahora solo considera gastos de
- * categoría Material (mano de obra y otras categorías quedan pendientes).
- */
-export async function calcularPresupuestoSugerido(input: {
-  modalidad: Modalidad;
-  m2: number;
-  nBanos: number | null;
-  tieneDeck: boolean;
-  excludeId?: string;
-}): Promise<PresupuestoSugerido | { error: string }> {
-  if (!Number.isFinite(input.m2) || input.m2 <= 0) {
-    return { error: "Ingresa m² válidos antes de calcular." };
-  }
-
-  const supabase = await createClient();
-
-  const { data: catalogoEtapasRaw } = await supabase
-    .from("catalogo_etapas")
-    .select("*")
-    .in("modalidad", modalidadesIncluidas(input.modalidad));
-  const catalogoEtapas = filtrarEtapasPorOpciones(catalogoEtapasRaw ?? [], {
-    tieneDeck: input.tieneDeck,
-    modalidad: input.modalidad,
-  });
-  const etapaIds = new Set(catalogoEtapas.map((e) => e.id));
-
-  if (etapaIds.size === 0) {
-    return { error: "No hay etapas configuradas para esta modalidad todavía." };
-  }
-
-  const { data: catalogoMateriales } = await supabase
-    .from("catalogo_materiales")
-    .select("*")
-    .in("etapa_id", Array.from(etapaIds));
-
-  let proyectosQuery = supabase.from("proyectos").select("id, m2, n_banos").eq("estado", "Terminado");
-  if (input.excludeId) proyectosQuery = proyectosQuery.neq("id", input.excludeId);
-  const { data: proyectosTerminados } = await proyectosQuery;
-
-  if (!proyectosTerminados || proyectosTerminados.length === 0) {
-    return { error: "Todavía no hay proyectos Terminados para calcular un presupuesto teórico." };
-  }
-
-  const { data: gastos } = await supabase
-    .from("gastos")
-    .select("*")
-    .in(
-      "proyecto_id",
-      proyectosTerminados.map((p) => p.id)
-    )
-    .eq("categoria", "Material");
-
-  // Solo gastos de etapas que le corresponden a este proyecto (su modalidad + tiene_deck),
-  // aunque vengan de un proyecto Terminado de otra modalidad (ej. un dato de Obra Gruesa de
-  // un proyecto Llave en Mano sirve igual para un proyecto nuevo Obra Gruesa).
-  const gastosRelevantes = (gastos ?? []).filter(
-    (g): g is Gasto => g.etapa_id != null && etapaIds.has(g.etapa_id)
-  );
-
-  const gastosPorProyecto = new Map<string, Gasto[]>();
-  for (const g of gastosRelevantes) {
-    const lista = gastosPorProyecto.get(g.proyecto_id) ?? [];
-    lista.push(g);
-    gastosPorProyecto.set(g.proyecto_id, lista);
-  }
-
-  const proyectosConDatos = proyectosTerminados.filter((p) => gastosPorProyecto.has(p.id));
-  if (proyectosConDatos.length === 0) {
-    return {
-      error: "Los proyectos Terminados todavía no tienen gastos de Material para estas etapas.",
-    };
-  }
-
-  const ratios = calcularRatiosPromedio(proyectosConDatos, gastosPorProyecto, catalogoMateriales ?? []);
-  const estimaciones = estimar(ratios, input.m2, input.nBanos);
-  const presupuesto = Math.round(estimaciones.reduce((sum, e) => sum + e.costoEstimado, 0));
-
-  return { presupuesto, proyectosConsiderados: proyectosConDatos.length };
 }
 
 export async function deleteProyecto(id: string) {

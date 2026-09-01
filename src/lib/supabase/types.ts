@@ -81,6 +81,9 @@ export interface Database {
           fecha_inicio: string;
           fecha_termino_estimada: string | null;
           presupuesto_total: number;
+          contrato: number;
+          anexo_1: number;
+          anexo_2: number;
           cliente: string | null;
           estado: EstadoProyecto;
           es_proyecto_referencia_m2: boolean;
@@ -100,6 +103,9 @@ export interface Database {
           fecha_inicio: string;
           fecha_termino_estimada?: string | null;
           presupuesto_total: number;
+          contrato?: number;
+          anexo_1?: number;
+          anexo_2?: number;
           cliente?: string | null;
           estado?: EstadoProyecto;
           es_proyecto_referencia_m2?: boolean;
@@ -119,6 +125,9 @@ export interface Database {
           fecha_inicio?: string;
           fecha_termino_estimada?: string | null;
           presupuesto_total?: number;
+          contrato?: number;
+          anexo_1?: number;
+          anexo_2?: number;
           cliente?: string | null;
           estado?: EstadoProyecto;
           es_proyecto_referencia_m2?: boolean;

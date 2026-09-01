@@ -1,10 +1,20 @@
 "use client";
 
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { calcularPresupuestoSugerido, type ActionState } from "@/app/proyectos/actions";
-import type { Database, Modalidad, TipoTecho } from "@/lib/supabase/types";
-import { BTN_PRIMARY, BTN_SECONDARY } from "@/lib/ui";
+import type { ActionState } from "@/app/proyectos/actions";
+import type { Database, TipoTecho } from "@/lib/supabase/types";
+import { BTN_PRIMARY } from "@/lib/ui";
+
+// El presupuesto de la casa es el 80% de lo que el cliente firma en total
+// (Contrato + Anexo 1 + Anexo 2) — mismo porcentaje que actions.ts.
+const PORCENTAJE_PRESUPUESTO = 0.8;
+
+const currencyFormatter = new Intl.NumberFormat("es-CL", {
+  style: "currency",
+  currency: "CLP",
+  maximumFractionDigits: 0,
+});
 
 type Proyecto = Database["public"]["Tables"]["proyectos"]["Row"];
 
@@ -30,53 +40,17 @@ export function ProyectoForm({ action, proyecto }: ProyectoFormProps) {
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
   const [tipoTecho, setTipoTecho] = useState<TipoTecho | "">(proyecto?.tipo_techo ?? "");
 
-  const formRef = useRef<HTMLFormElement>(null);
-  const presupuestoRef = useRef<HTMLInputElement>(null);
-  const [calculando, startCalculo] = useTransition();
-  const [calculoError, setCalculoError] = useState<string | null>(null);
-  const [calculoInfo, setCalculoInfo] = useState<string | null>(null);
+  const [contrato, setContrato] = useState(proyecto ? String(proyecto.contrato) : "");
+  const [anexo1, setAnexo1] = useState(proyecto ? String(proyecto.anexo_1) : "");
+  const [anexo2, setAnexo2] = useState(proyecto ? String(proyecto.anexo_2) : "");
 
-  function handleCalcularPresupuesto() {
-    if (!formRef.current) return;
-    const fd = new FormData(formRef.current);
-    const modalidad = String(fd.get("modalidad") ?? "") as Modalidad;
-    const m2 = Number(fd.get("m2"));
-    const nBanosRaw = String(fd.get("n_banos") ?? "").trim();
-    const nBanos = nBanosRaw ? Number(nBanosRaw) : null;
-    const tieneDeck = fd.get("tiene_deck") === "on";
-
-    setCalculoInfo(null);
-    if (!modalidad || !Number.isFinite(m2) || m2 <= 0) {
-      setCalculoError("Completa modalidad y m² antes de calcular.");
-      return;
-    }
-    setCalculoError(null);
-
-    startCalculo(async () => {
-      try {
-        const resultado = await calcularPresupuestoSugerido({
-          modalidad,
-          m2,
-          nBanos,
-          tieneDeck,
-          excludeId: proyecto?.id,
-        });
-        if ("error" in resultado) {
-          setCalculoError(resultado.error);
-          return;
-        }
-        if (presupuestoRef.current) presupuestoRef.current.value = String(resultado.presupuesto);
-        setCalculoInfo(
-          `Estimado con datos de ${resultado.proyectosConsiderados} proyecto${resultado.proyectosConsiderados === 1 ? "" : "s"} Terminado${resultado.proyectosConsiderados === 1 ? "" : "s"}. Puedes ajustarlo a mano si quieres.`
-        );
-      } catch (err) {
-        setCalculoError(err instanceof Error ? err.message : "Error inesperado al calcular.");
-      }
-    });
-  }
+  const presupuestoCalculado = useMemo(() => {
+    const suma = (Number(contrato) || 0) + (Number(anexo1) || 0) + (Number(anexo2) || 0);
+    return Math.round(suma * PORCENTAJE_PRESUPUESTO);
+  }, [contrato, anexo1, anexo2]);
 
   return (
-    <form ref={formRef} action={formAction} className="grid max-w-2xl gap-4">
+    <form action={formAction} className="grid max-w-2xl gap-4">
       {state.error && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {state.error}
@@ -126,48 +100,82 @@ export function ProyectoForm({ action, proyecto }: ProyectoFormProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass} htmlFor="m2">
-            m²
-          </label>
-          <input
-            id="m2"
-            name="m2"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            defaultValue={proyecto?.m2}
-            className={inputClass}
-          />
+      <div>
+        <label className={labelClass} htmlFor="m2">
+          m²
+        </label>
+        <input
+          id="m2"
+          name="m2"
+          type="number"
+          step="0.01"
+          min="0"
+          required
+          defaultValue={proyecto?.m2}
+          className={inputClass}
+        />
+      </div>
+
+      <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Lo que firma el cliente
+        </p>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelClass} htmlFor="contrato">
+              Contrato
+            </label>
+            <input
+              id="contrato"
+              name="contrato"
+              type="number"
+              step="1"
+              min="0"
+              required
+              value={contrato}
+              onChange={(e) => setContrato(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="anexo_1">
+              Anexo 1
+            </label>
+            <input
+              id="anexo_1"
+              name="anexo_1"
+              type="number"
+              step="1"
+              min="0"
+              placeholder="0"
+              value={anexo1}
+              onChange={(e) => setAnexo1(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="anexo_2">
+              Anexo 2
+            </label>
+            <input
+              id="anexo_2"
+              name="anexo_2"
+              type="number"
+              step="1"
+              min="0"
+              placeholder="0"
+              value={anexo2}
+              onChange={(e) => setAnexo2(e.target.value)}
+              className={inputClass}
+            />
+          </div>
         </div>
-        <div>
-          <label className={labelClass} htmlFor="presupuesto_total">
-            Presupuesto total
-          </label>
-          <input
-            ref={presupuestoRef}
-            id="presupuesto_total"
-            name="presupuesto_total"
-            type="number"
-            step="1"
-            min="0"
-            required
-            defaultValue={proyecto?.presupuesto_total}
-            className={inputClass}
-          />
-          <button
-            type="button"
-            disabled={calculando}
-            onClick={handleCalcularPresupuesto}
-            className={`${BTN_SECONDARY} mt-2 w-full text-xs`}
-          >
-            {calculando ? "Calculando..." : "Calcular presupuesto sugerido"}
-          </button>
-          {calculoError && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{calculoError}</p>}
-          {calculoInfo && <p className="mt-1 text-xs text-zinc-500">{calculoInfo}</p>}
-        </div>
+        <p className="mt-3 text-sm text-zinc-500">
+          Presupuesto de la casa (80% de la suma de arriba):{" "}
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+            {currencyFormatter.format(presupuestoCalculado)}
+          </span>
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
