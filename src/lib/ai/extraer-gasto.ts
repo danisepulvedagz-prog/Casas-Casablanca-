@@ -102,7 +102,11 @@ Para cada ítem que identifiques en el documento:
   "Marcos de lenga horizontales" y el LARGO más largo (~2200mm, similar a la altura de una puerta) es
   "Marcos de lenga verticales", ambos de la etapa Puertas interiores y exteriores;
   "VOLCANITA ST BR" (o cualquier variante de espesor/medida de volcanita estándar de bordes rebajados) es la
-  "Volcanita" del catálogo — no se distingue entre cielo y muro, es un solo material genérico).
+  "Volcanita" del catálogo — no se distingue entre cielo y muro, es un solo material genérico;
+  a veces la boleta de cable eléctrico solo trae el código, sin decir el color — usa este código para saber
+  el color y el espesor: 0002604100 = Blanco 1,5mm, 0002604103 = Rojo 1,5mm, 0002604112 = Verde 1,5mm,
+  0002604120 = Blanco 2,5mm, 0002604123 = Rojo 2,5mm, 0002604132 = Verde 2,5mm — así identificas si es
+  "Cable Blanco/Rojo/Verde 1,5mm" o "2,5mm" del catálogo aunque no diga el color en la descripción).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
