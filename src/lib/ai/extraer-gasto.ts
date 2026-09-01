@@ -110,7 +110,9 @@ Para cada ítem que identifiques en el documento:
   "Taza WC", "Estanque WC" y "Asiento y Tapa WC" (las 3 partes de un inodoro, aunque vengan en líneas
   separadas de la boleta) son todas el mismo material "WC" de la etapa Baños terminaciones — no las separes;
   "Tornillo Drywall CRS 6-9 x 1 1/4" es el mismo producto que "Tornillos 1 1/4" de la etapa Revestimiento
-  exterior y aleros — usa siempre "Tornillos 1 1/4").
+  exterior y aleros — usa siempre "Tornillos 1 1/4"; "Tapacán 1x8" es el mismo producto que "Pino Cepillado
+  1x8" (misma etapa) — usa siempre "Pino Cepillado 1x8"; "Barniz" es el mismo producto que "Pintura
+  Cerestain" (misma etapa) — usa siempre "Pintura Cerestain").
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
