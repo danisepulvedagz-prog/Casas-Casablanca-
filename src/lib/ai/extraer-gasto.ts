@@ -92,7 +92,10 @@ Para cada ítem que identifiques en el documento:
   "Tornillo Chipboard 8 (4.0) x 40" es "Turbo 1,5\"" — en todos estos casos de tornillos Chipboard/Turbo,
   siempre usa el nombre "Turbo ..." del catálogo;
   "Tornillo Zincado CRS B-Phillips 6-9 x 1 5/8" (o variantes con esas mismas medidas) es el mismo producto
-  que "Tornillo CRS 6-9 x 1 5/8" del catálogo — usa siempre el nombre del catálogo).
+  que "Tornillo CRS 6-9 x 1 5/8" del catálogo — usa siempre el nombre del catálogo;
+  "Perno de anclaje" y "Perno de expansión" son dos nombres para el mismo tipo de producto — en las boletas
+  aparecen indistintamente para el mismo perno, así que al buscar coincidencia en el catálogo compara por
+  diámetro y largo sin importar cuál de los dos nombres traiga la boleta ni cuál tenga el catálogo).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
