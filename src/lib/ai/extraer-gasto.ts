@@ -112,7 +112,8 @@ Para cada ítem que identifiques en el documento:
   "Tornillo Drywall CRS 6-9 x 1 1/4" es el mismo producto que "Tornillos 1 1/4" de la etapa Revestimiento
   exterior y aleros — usa siempre "Tornillos 1 1/4"; "Tapacán 1x8" es el mismo producto que "Pino Cepillado
   1x8" (misma etapa) — usa siempre "Pino Cepillado 1x8"; "Barniz" es el mismo producto que "Pintura
-  Cerestain" (misma etapa) — usa siempre "Pintura Cerestain").
+  Cerestain" (misma etapa) — usa siempre "Pintura Cerestain"; "Cerestain Encina o natural" (aunque la boleta
+  la relacione con techumbre) también es "Pintura Cerestain" de la etapa Revestimiento exterior y aleros).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
