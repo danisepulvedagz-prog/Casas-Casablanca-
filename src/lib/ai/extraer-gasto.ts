@@ -108,7 +108,9 @@ Para cada ítem que identifiques en el documento:
   0002604120 = Blanco 2,5mm, 0002604123 = Rojo 2,5mm, 0002604132 = Verde 2,5mm — así identificas si es
   "Cable Blanco/Rojo/Verde 1,5mm" o "2,5mm" del catálogo aunque no diga el color en la descripción;
   "Taza WC", "Estanque WC" y "Asiento y Tapa WC" (las 3 partes de un inodoro, aunque vengan en líneas
-  separadas de la boleta) son todas el mismo material "WC" de la etapa Baños terminaciones — no las separes).
+  separadas de la boleta) son todas el mismo material "WC" de la etapa Baños terminaciones — no las separes;
+  "Tornillo Drywall CRS 6-9 x 1 1/4" es el mismo producto que "Tornillos 1 1/4" de la etapa Revestimiento
+  exterior y aleros — usa siempre "Tornillos 1 1/4").
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
