@@ -76,11 +76,16 @@ Para cada ítem que identifiques en el documento:
   "Pino verde bruto 2x4" (o cualquier variante de "pino verde" en dimensión 2x4) es "Madera deck" de la
   etapa Deck exterior — es la madera para construir el deck, no confundir con la madera de estructura;
   "Fibrocemento 6mm 1.2 x 2.4 mts base cerámica Pizarreño" (o variantes de medidas/espesor de fibrocemento
-  Pizarreño) es el mismo producto que "Internit" de la etapa Volcanita muros;
+  Pizarreño) es el mismo producto que "Internit" de la etapa Cielo falso y muro de volcanita;
   "Disco de sierra 7 1/4\" 30 dientes eje 16mm" o "Disco diamantado turbo corta porcelanato" (o cualquier
   variante de medidas/dientes/eje de disco de corte para sierra circular o amoladora) es el mismo producto
   que "Discos" de la etapa Instalación porcelanato;
-  "Adisol" es el mismo producto que "Puente adherente" de la etapa Afinado de piso).
+  "Adisol" es el mismo producto que "Puente adherente" de la etapa Afinado de piso;
+  una línea de boleta que diga "Puerta Ext" seguido de una especie de madera como "Pino Italia" (ej. "PUERTA
+  EXT PINO ITALIA 80X200") es en realidad una "Puerta Interior" de la etapa Puertas interiores y exteriores
+  — a pesar de decir "Ext" en la abreviatura, ese producto puntual siempre es la puerta interior, no la
+  exterior; la puerta exterior real casi siempre aparece en las boletas como "Puerta de Lenga" (o variantes
+  con esa madera) — usa "Puerta Exterior" del catálogo para esa).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
