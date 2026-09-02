@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { currencyFormatter, formatFecha } from "@/lib/format";
 import { LINK_MUTED } from "@/lib/ui";
@@ -44,6 +44,81 @@ function MiniaturaComprobante({ path, url }: { path: string | null; url: string 
   return <img src={url} alt="Foto del comprobante" className="h-10 w-10 shrink-0 rounded object-cover" />;
 }
 
+// Dropdown de selección múltiple (checkboxes) — mismo look que los <select>
+// simples de al lado, pero permite elegir varias etapas/categorías/materiales
+// a la vez en vez de una sola.
+function MultiSelectFiltro({
+  placeholder,
+  opciones,
+  seleccionados,
+  onChange,
+}: {
+  placeholder: string;
+  opciones: string[];
+  seleccionados: string[];
+  onChange: (valores: string[]) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickFuera(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false);
+    }
+    document.addEventListener("mousedown", onClickFuera);
+    return () => document.removeEventListener("mousedown", onClickFuera);
+  }, []);
+
+  function toggle(valor: string) {
+    onChange(
+      seleccionados.includes(valor) ? seleccionados.filter((v) => v !== valor) : [...seleccionados, valor]
+    );
+  }
+
+  const etiqueta =
+    seleccionados.length === 0
+      ? placeholder
+      : seleccionados.length === 1
+        ? seleccionados[0]
+        : `${placeholder.replace(/^Todas? l[ao]s? /i, "")} (${seleccionados.length})`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        className={`${selectClass} flex max-w-[220px] items-center gap-2`}
+      >
+        <span className="truncate">{etiqueta}</span>
+        <span className="shrink-0 text-zinc-400">▾</span>
+      </button>
+      {abierto && (
+        <div className="absolute z-20 mt-1 max-h-64 w-64 overflow-y-auto rounded-md border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+          {opciones.length === 0 && <p className="px-2 py-1 text-xs text-zinc-400">Sin opciones</p>}
+          {opciones.map((op) => (
+            <label
+              key={op}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            >
+              <input type="checkbox" checked={seleccionados.includes(op)} onChange={() => toggle(op)} />
+              <span className="truncate">{op}</span>
+            </label>
+          ))}
+          {seleccionados.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="mt-1 w-full rounded px-2 py-1 text-left text-xs text-zinc-500 hover:text-brand hover:underline"
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GastosTabla({
   proyectoId,
   gastos,
@@ -55,50 +130,61 @@ export function GastosTabla({
   etapas: string[];
   categorias: string[];
 }) {
-  const [filtroEtapa, setFiltroEtapa] = useState("");
-  const [filtroCategoria, setFiltroCategoria] = useState("");
-  const [filtroMaterial, setFiltroMaterial] = useState("");
+  const [filtroEtapas, setFiltroEtapas] = useState<string[]>([]);
+  const [filtroCategorias, setFiltroCategorias] = useState<string[]>([]);
+  const [filtroMateriales, setFiltroMateriales] = useState<string[]>([]);
+  const [busquedaDocumento, setBusquedaDocumento] = useState("");
 
-  const hayFiltrosActivos = !!(filtroEtapa || filtroCategoria || filtroMaterial);
+  const hayFiltrosActivos = !!(
+    filtroEtapas.length ||
+    filtroCategorias.length ||
+    filtroMateriales.length ||
+    busquedaDocumento.trim()
+  );
 
-  // La lista de materiales del filtro depende de la etapa (y categoría)
-  // elegida: solo muestra materiales que efectivamente existen ahí, para no
+  // La lista de materiales del filtro depende de las etapas/categorías
+  // elegidas: solo muestra materiales que efectivamente existen ahí, para no
   // ofrecer opciones que siempre dan 0 resultados.
   const materialesDisponibles = useMemo(() => {
     const vistos = new Set(
       gastos
         .filter(
           (g) =>
-            (!filtroEtapa || g.etapaNombre === filtroEtapa) &&
-            (!filtroCategoria || g.categoria === filtroCategoria)
+            (filtroEtapas.length === 0 || filtroEtapas.includes(g.etapaNombre)) &&
+            (filtroCategorias.length === 0 || filtroCategorias.includes(g.categoria))
         )
         .map((g) => g.material)
         .filter((m): m is string => !!m)
     );
     return Array.from(vistos).sort((a, b) => a.localeCompare(b, "es"));
-  }, [gastos, filtroEtapa, filtroCategoria]);
+  }, [gastos, filtroEtapas, filtroCategorias]);
 
-  // Si al cambiar etapa/categoría el material elegido deja de existir en la
-  // nueva lista, se limpia — ajustado durante el render (no en un efecto)
+  // Si al cambiar etapas/categorías algún material elegido deja de existir en
+  // la nueva lista, se saca — ajustado durante el render (no en un efecto)
   // siguiendo el patrón recomendado por React para estado derivado de props.
   const [materialesPrevios, setMaterialesPrevios] = useState(materialesDisponibles);
   if (materialesDisponibles !== materialesPrevios) {
     setMaterialesPrevios(materialesDisponibles);
-    if (filtroMaterial && !materialesDisponibles.includes(filtroMaterial)) {
-      setFiltroMaterial("");
-    }
+    const disponiblesSet = new Set(materialesDisponibles);
+    const siguen = filtroMateriales.filter((m) => disponiblesSet.has(m));
+    if (siguen.length !== filtroMateriales.length) setFiltroMateriales(siguen);
   }
+
+  const busquedaNormalizada = busquedaDocumento.trim().toLowerCase();
 
   const filtrados = useMemo(
     () =>
       gastos.filter(
         (g) =>
-          (!filtroEtapa || g.etapaNombre === filtroEtapa) &&
-          (!filtroCategoria || g.categoria === filtroCategoria) &&
-          (!filtroMaterial || g.material === filtroMaterial)
+          (filtroEtapas.length === 0 || filtroEtapas.includes(g.etapaNombre)) &&
+          (filtroCategorias.length === 0 || filtroCategorias.includes(g.categoria)) &&
+          (filtroMateriales.length === 0 || (g.material != null && filtroMateriales.includes(g.material))) &&
+          (!busquedaNormalizada || (g.nDocumento ?? "").toLowerCase().includes(busquedaNormalizada))
       ),
-    [gastos, filtroEtapa, filtroCategoria, filtroMaterial]
+    [gastos, filtroEtapas, filtroCategorias, filtroMateriales, busquedaNormalizada]
   );
+
+  const totalFiltrado = useMemo(() => filtrados.reduce((s, g) => s + g.monto_total, 0), [filtrados]);
 
   // Se agrupan por documento (factura/transferencia) para poder desplegar
   // "qué comprobantes componen este material" — útil para pescar errores
@@ -129,58 +215,55 @@ export function GastosTabla({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <select
-          value={filtroEtapa}
-          onChange={(e) => setFiltroEtapa(e.target.value)}
-          className={selectClass}
-        >
-          <option value="">Todas las etapas</option>
-          {etapas.map((nombre) => (
-            <option key={nombre} value={nombre}>
-              {nombre}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filtroCategoria}
-          onChange={(e) => setFiltroCategoria(e.target.value)}
-          className={selectClass}
-        >
-          <option value="">Todas las categorías</option>
-          {categorias.map((categoria) => (
-            <option key={categoria} value={categoria}>
-              {categoria}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filtroMaterial}
-          onChange={(e) => setFiltroMaterial(e.target.value)}
-          className={selectClass}
-        >
-          <option value="">Todos los materiales</option>
-          {materialesDisponibles.map((material) => (
-            <option key={material} value={material}>
-              {material}
-            </option>
-          ))}
-        </select>
+        <MultiSelectFiltro
+          placeholder="Todas las etapas"
+          opciones={etapas}
+          seleccionados={filtroEtapas}
+          onChange={setFiltroEtapas}
+        />
+        <MultiSelectFiltro
+          placeholder="Todas las categorías"
+          opciones={categorias}
+          seleccionados={filtroCategorias}
+          onChange={setFiltroCategorias}
+        />
+        <MultiSelectFiltro
+          placeholder="Todos los materiales"
+          opciones={materialesDisponibles}
+          seleccionados={filtroMateriales}
+          onChange={setFiltroMateriales}
+        />
+        <input
+          type="text"
+          value={busquedaDocumento}
+          onChange={(e) => setBusquedaDocumento(e.target.value)}
+          placeholder="Buscar N° de documento..."
+          className={`${selectClass} w-48`}
+        />
         {hayFiltrosActivos && (
           <button
             type="button"
             onClick={() => {
-              setFiltroEtapa("");
-              setFiltroCategoria("");
-              setFiltroMaterial("");
+              setFiltroEtapas([]);
+              setFiltroCategorias([]);
+              setFiltroMateriales([]);
+              setBusquedaDocumento("");
             }}
             className="text-sm text-zinc-500 hover:text-brand hover:underline"
           >
             Limpiar filtros
           </button>
         )}
-        <span className="text-sm text-zinc-500">
-          {filtrados.length} de {gastos.length} gastos
-        </span>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <p className="text-sm text-zinc-500">
+          {hayFiltrosActivos ? "Total filtrado" : "Total de gastos"} · {filtrados.length} de {gastos.length}{" "}
+          gasto{gastos.length === 1 ? "" : "s"}
+        </p>
+        <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          {currencyFormatter.format(totalFiltrado)}
+        </p>
       </div>
 
       {filtrados.length === 0 && (
