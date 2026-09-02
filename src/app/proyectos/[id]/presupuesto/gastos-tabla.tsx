@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { currencyFormatter, formatFecha } from "@/lib/format";
-import { LINK_MUTED } from "@/lib/ui";
+import { BTN_SECONDARY, LINK_MUTED } from "@/lib/ui";
 import { MultiSelectFiltro } from "@/components/multi-select-filtro";
+import { descargarExcelGastos } from "@/lib/exportar-excel";
 
 export interface GastoTablaRow {
   id: string;
@@ -112,6 +113,22 @@ export function GastosTabla({
 
   const totalFiltrado = useMemo(() => filtrados.reduce((s, g) => s + g.monto_total, 0), [filtrados]);
 
+  function handleDescargar() {
+    descargarExcelGastos(
+      filtrados.map((g) => ({
+        fecha: g.fecha,
+        proveedor: g.proveedor ?? "",
+        nDocumento: g.nDocumento ?? "",
+        etapa: g.etapaNombre,
+        categoria: g.categoria,
+        material: g.material ?? "",
+        cantidad: g.cantidad ? `${g.cantidad} ${g.unidad ?? ""}`.trim() : "",
+        monto_total: g.monto_total,
+      })),
+      `gastos_${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+  }
+
   // Se agrupan por documento (factura/transferencia) para poder desplegar
   // "qué comprobantes componen este material" — útil para pescar errores
   // (un monto que se ve raro, un ítem mal asignado, etc.) sin tener que
@@ -182,14 +199,24 @@ export function GastosTabla({
         )}
       </div>
 
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <p className="text-sm text-zinc-500">
-          {hayFiltrosActivos ? "Total filtrado" : "Total de gastos"} · {filtrados.length} de {gastos.length}{" "}
-          gasto{gastos.length === 1 ? "" : "s"}
-        </p>
-        <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          {currencyFormatter.format(totalFiltrado)}
-        </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div>
+          <p className="text-sm text-zinc-500">
+            {hayFiltrosActivos ? "Total filtrado" : "Total de gastos"} · {filtrados.length} de {gastos.length}{" "}
+            gasto{gastos.length === 1 ? "" : "s"}
+          </p>
+          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            {currencyFormatter.format(totalFiltrado)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleDescargar}
+          disabled={filtrados.length === 0}
+          className={`${BTN_SECONDARY} text-sm disabled:cursor-not-allowed disabled:opacity-50`}
+        >
+          Descargar Excel
+        </button>
       </div>
 
       {filtrados.length === 0 && (

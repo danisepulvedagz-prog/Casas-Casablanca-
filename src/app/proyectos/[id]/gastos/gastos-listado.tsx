@@ -6,8 +6,9 @@ import { DeleteGastoButton } from "@/app/proyectos/[id]/gastos/delete-gasto-butt
 import { DeleteFacturaButton } from "@/app/proyectos/[id]/gastos/delete-factura-button";
 import { DeleteTransferenciaButton } from "@/app/proyectos/[id]/gastos/delete-transferencia-button";
 import { CATEGORIAS_GASTO, currencyFormatter, formatFecha } from "@/lib/format";
-import { LINK_MUTED } from "@/lib/ui";
+import { BTN_SECONDARY, LINK_MUTED } from "@/lib/ui";
 import { MultiSelectFiltro } from "@/components/multi-select-filtro";
+import { descargarExcelGastos } from "@/lib/exportar-excel";
 import type { Database } from "@/lib/supabase/types";
 
 type Gasto = Database["public"]["Tables"]["gastos"]["Row"];
@@ -163,6 +164,47 @@ export function GastosListado({
     transferenciasFiltradas.reduce((s, t) => s + t.itemsFiltrados.reduce((s2, g) => s2 + g.monto_total, 0), 0) +
     gastosSueltosFiltrados.reduce((s, g) => s + g.monto_total, 0);
 
+  function handleDescargar() {
+    const filas = [
+      ...facturasFiltradas.flatMap((f) =>
+        f.itemsFiltrados.map((g) => ({
+          fecha: g.fecha,
+          proveedor: f.proveedor ?? "",
+          nDocumento: f.n_documento ?? "",
+          etapa: (g.etapa_id != null ? nombreEtapa.get(g.etapa_id) : undefined) ?? "",
+          categoria: g.categoria,
+          material: g.material ?? "",
+          cantidad: g.cantidad ? `${g.cantidad} ${g.unidad ?? ""}`.trim() : "",
+          monto_total: g.monto_total,
+        }))
+      ),
+      ...transferenciasFiltradas.flatMap((t) =>
+        t.itemsFiltrados.map((g) => ({
+          fecha: g.fecha,
+          proveedor: t.destinatario ?? "",
+          nDocumento: t.n_operacion ?? "",
+          etapa: (g.etapa_id != null ? nombreEtapa.get(g.etapa_id) : undefined) ?? "",
+          categoria: g.categoria,
+          material: g.material ?? "",
+          cantidad: g.cantidad ? `${g.cantidad} ${g.unidad ?? ""}`.trim() : "",
+          monto_total: g.monto_total,
+        }))
+      ),
+      ...gastosSueltosFiltrados.map((g) => ({
+        fecha: g.fecha,
+        proveedor: g.proveedor ?? "",
+        nDocumento: g.n_documento ?? "",
+        etapa: (g.etapa_id != null ? nombreEtapa.get(g.etapa_id) : undefined) ?? "",
+        categoria: g.categoria,
+        material: g.material ?? "",
+        cantidad: g.cantidad ? `${g.cantidad} ${g.unidad ?? ""}`.trim() : "",
+        monto_total: g.monto_total,
+      })),
+    ].sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+    descargarExcelGastos(filas, `gastos_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
@@ -215,14 +257,24 @@ export function GastosListado({
         )}
       </div>
 
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <p className="text-sm text-zinc-500">
-          {hayFiltrosActivos ? "Total filtrado" : "Total de gastos"} · {totalItemsFiltrados} de {totalItems}{" "}
-          ítem{totalItems === 1 ? "" : "s"}
-        </p>
-        <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          {currencyFormatter.format(totalMontoFiltrado)}
-        </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div>
+          <p className="text-sm text-zinc-500">
+            {hayFiltrosActivos ? "Total filtrado" : "Total de gastos"} · {totalItemsFiltrados} de {totalItems}{" "}
+            ítem{totalItems === 1 ? "" : "s"}
+          </p>
+          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            {currencyFormatter.format(totalMontoFiltrado)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleDescargar}
+          disabled={totalItemsFiltrados === 0}
+          className={`${BTN_SECONDARY} text-sm disabled:cursor-not-allowed disabled:opacity-50`}
+        >
+          Descargar Excel
+        </button>
       </div>
 
       {hayFiltrosActivos && totalItemsFiltrados === 0 && (
