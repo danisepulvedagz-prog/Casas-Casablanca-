@@ -117,7 +117,10 @@ Para cada ítem que identifiques en el documento:
   "Insumos de limpieza" existe en dos etapas (Retiro de escombros y limpieza, y Limpieza interior) con el
   mismo nombre y no se puede distinguir por el contenido de la boleta — por defecto usa "Limpieza interior",
   salvo que el documento o el contexto dejen claro que es limpieza de escombros/obra gruesa durante la
-  construcción).
+  construcción;
+  un gres/porcelánico de revestimiento de baño (ej. "POR.ESMAL.MATE..." u otro gres esmaltado para baño,
+  no confundir con el porcelanato de piso de la etapa Instalación porcelanato) es "Revestimiento piso" o
+  "Revestimiento muro" de la etapa Baños terminaciones según su formato: 60x60 es piso, 30x60 es muro).
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
