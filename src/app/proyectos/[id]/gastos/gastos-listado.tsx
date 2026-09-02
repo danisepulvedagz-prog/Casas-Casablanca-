@@ -7,6 +7,7 @@ import { DeleteFacturaButton } from "@/app/proyectos/[id]/gastos/delete-factura-
 import { DeleteTransferenciaButton } from "@/app/proyectos/[id]/gastos/delete-transferencia-button";
 import { CATEGORIAS_GASTO, currencyFormatter, formatFecha } from "@/lib/format";
 import { LINK_MUTED } from "@/lib/ui";
+import { MultiSelectFiltro } from "@/components/multi-select-filtro";
 import type { Database } from "@/lib/supabase/types";
 
 type Gasto = Database["public"]["Tables"]["gastos"]["Row"];
@@ -53,9 +54,10 @@ export function GastosListado({
   etapas: { id: number; nombre: string; orden: number }[];
 }) {
   const [filtroProveedor, setFiltroProveedor] = useState("");
-  const [filtroEtapa, setFiltroEtapa] = useState("");
-  const [filtroCategoria, setFiltroCategoria] = useState("");
-  const [filtroMaterial, setFiltroMaterial] = useState("");
+  const [busquedaDocumento, setBusquedaDocumento] = useState("");
+  const [filtroEtapas, setFiltroEtapas] = useState<string[]>([]);
+  const [filtroCategorias, setFiltroCategorias] = useState<string[]>([]);
+  const [filtroMateriales, setFiltroMateriales] = useState<string[]>([]);
 
   const nombreEtapa = useMemo(() => new Map(etapas.map((e) => [e.id, e.nombre])), [etapas]);
 
@@ -69,68 +71,85 @@ export function GastosListado({
     return etapas.filter((e) => ids.has(e.id)).sort((a, b) => a.orden - b.orden);
   }, [todosLosItems, etapas]);
 
-  // La lista de materiales del filtro depende de la etapa (y categoría)
-  // elegida: solo muestra materiales que efectivamente existen ahí, para no
+  // La lista de materiales del filtro depende de las etapas (y categorías)
+  // elegidas: solo muestra materiales que efectivamente existen ahí, para no
   // ofrecer opciones que siempre dan 0 resultados.
   const materialesPresentes = useMemo(() => {
     const vistos = new Set(
       todosLosItems
         .filter(
           (g) =>
-            (!filtroEtapa || String(g.etapa_id ?? "") === filtroEtapa) &&
-            (!filtroCategoria || g.categoria === filtroCategoria)
+            (filtroEtapas.length === 0 || filtroEtapas.includes(String(g.etapa_id ?? ""))) &&
+            (filtroCategorias.length === 0 || filtroCategorias.includes(g.categoria))
         )
         .map((g) => g.material)
         .filter((m): m is string => !!m)
     );
     return Array.from(vistos).sort((a, b) => a.localeCompare(b, "es"));
-  }, [todosLosItems, filtroEtapa, filtroCategoria]);
+  }, [todosLosItems, filtroEtapas, filtroCategorias]);
 
-  // Si al cambiar etapa/categoría el material elegido deja de existir en la
-  // nueva lista, se limpia — ajustado durante el render (no en un efecto)
-  // siguiendo el patrón recomendado por React para date derivado de props.
+  // Si al cambiar etapas/categorías algún material elegido deja de existir en
+  // la nueva lista, se saca — ajustado durante el render (no en un efecto)
+  // siguiendo el patrón recomendado por React para estado derivado de props.
   const [materialesPrevios, setMaterialesPrevios] = useState(materialesPresentes);
   if (materialesPresentes !== materialesPrevios) {
     setMaterialesPrevios(materialesPresentes);
-    if (filtroMaterial && !materialesPresentes.includes(filtroMaterial)) {
-      setFiltroMaterial("");
-    }
+    const disponiblesSet = new Set(materialesPresentes);
+    const siguen = filtroMateriales.filter((m) => disponiblesSet.has(m));
+    if (siguen.length !== filtroMateriales.length) setFiltroMateriales(siguen);
   }
 
-  const hayFiltrosActivos = !!(filtroProveedor || filtroEtapa || filtroCategoria || filtroMaterial);
+  const hayFiltrosActivos = !!(
+    filtroProveedor ||
+    busquedaDocumento.trim() ||
+    filtroEtapas.length ||
+    filtroCategorias.length ||
+    filtroMateriales.length
+  );
 
-  function coincide(gasto: Gasto, proveedorCabecera: string | null) {
+  function coincide(gasto: Gasto, proveedorCabecera: string | null, docCabecera: string | null) {
     if (filtroProveedor && !(proveedorCabecera ?? "").toLowerCase().includes(filtroProveedor.toLowerCase())) {
       return false;
     }
-    if (filtroEtapa && String(gasto.etapa_id ?? "") !== filtroEtapa) return false;
-    if (filtroCategoria && gasto.categoria !== filtroCategoria) return false;
-    if (filtroMaterial && gasto.material !== filtroMaterial) return false;
+    if (
+      busquedaDocumento.trim() &&
+      !(docCabecera ?? "").toLowerCase().includes(busquedaDocumento.trim().toLowerCase())
+    ) {
+      return false;
+    }
+    if (filtroEtapas.length > 0 && !filtroEtapas.includes(String(gasto.etapa_id ?? ""))) return false;
+    if (filtroCategorias.length > 0 && !filtroCategorias.includes(gasto.categoria)) return false;
+    if (filtroMateriales.length > 0 && (!gasto.material || !filtroMateriales.includes(gasto.material))) {
+      return false;
+    }
     return true;
   }
 
   const facturasFiltradas = useMemo(
     () =>
       facturas
-        .map((f) => ({ ...f, itemsFiltrados: f.items.filter((g) => coincide(g, f.proveedor)) }))
+        .map((f) => ({ ...f, itemsFiltrados: f.items.filter((g) => coincide(g, f.proveedor, f.n_documento)) }))
         .filter((f) => f.itemsFiltrados.length > 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [facturas, filtroProveedor, filtroEtapa, filtroCategoria, filtroMaterial]
+    [facturas, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales]
   );
 
   const transferenciasFiltradas = useMemo(
     () =>
       transferencias
-        .map((t) => ({ ...t, itemsFiltrados: t.items.filter((g) => coincide(g, t.destinatario)) }))
+        .map((t) => ({
+          ...t,
+          itemsFiltrados: t.items.filter((g) => coincide(g, t.destinatario, t.n_operacion)),
+        }))
         .filter((t) => t.itemsFiltrados.length > 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transferencias, filtroProveedor, filtroEtapa, filtroCategoria, filtroMaterial]
+    [transferencias, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales]
   );
 
   const gastosSueltosFiltrados = useMemo(
-    () => gastosSueltos.filter((g) => coincide(g, g.proveedor)),
+    () => gastosSueltos.filter((g) => coincide(g, g.proveedor, g.n_documento)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [gastosSueltos, filtroProveedor, filtroEtapa, filtroCategoria, filtroMaterial]
+    [gastosSueltos, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales]
   );
 
   const totalItems = todosLosItems.length;
@@ -139,9 +158,14 @@ export function GastosListado({
     transferenciasFiltradas.reduce((s, t) => s + t.itemsFiltrados.length, 0) +
     gastosSueltosFiltrados.length;
 
+  const totalMontoFiltrado =
+    facturasFiltradas.reduce((s, f) => s + f.itemsFiltrados.reduce((s2, g) => s2 + g.monto_total, 0), 0) +
+    transferenciasFiltradas.reduce((s, t) => s + t.itemsFiltrados.reduce((s2, g) => s2 + g.monto_total, 0), 0) +
+    gastosSueltosFiltrados.reduce((s, g) => s + g.monto_total, 0);
+
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
         <input
           type="text"
           value={filtroProveedor}
@@ -149,55 +173,56 @@ export function GastosListado({
           placeholder="Buscar proveedor..."
           className={selectClass}
         />
-        <select value={filtroEtapa} onChange={(e) => setFiltroEtapa(e.target.value)} className={selectClass}>
-          <option value="">Todas las etapas</option>
-          {etapasPresentes.map((etapa) => (
-            <option key={etapa.id} value={etapa.id}>
-              {etapa.nombre}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filtroCategoria}
-          onChange={(e) => setFiltroCategoria(e.target.value)}
+        <input
+          type="text"
+          value={busquedaDocumento}
+          onChange={(e) => setBusquedaDocumento(e.target.value)}
+          placeholder="Buscar N° de documento..."
           className={selectClass}
-        >
-          <option value="">Material y Mano de Obra</option>
-          {CATEGORIAS_GASTO.map((categoria) => (
-            <option key={categoria} value={categoria}>
-              {categoria}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filtroMaterial}
-          onChange={(e) => setFiltroMaterial(e.target.value)}
-          className={selectClass}
-        >
-          <option value="">Todos los materiales</option>
-          {materialesPresentes.map((material) => (
-            <option key={material} value={material}>
-              {material}
-            </option>
-          ))}
-        </select>
+        />
+        <MultiSelectFiltro
+          placeholder="Todas las etapas"
+          opciones={etapasPresentes.map((etapa) => ({ value: String(etapa.id), label: etapa.nombre }))}
+          seleccionados={filtroEtapas}
+          onChange={setFiltroEtapas}
+        />
+        <MultiSelectFiltro
+          placeholder="Material y Mano de Obra"
+          opciones={CATEGORIAS_GASTO.map((categoria) => ({ value: categoria, label: categoria }))}
+          seleccionados={filtroCategorias}
+          onChange={setFiltroCategorias}
+        />
+        <MultiSelectFiltro
+          placeholder="Todos los materiales"
+          opciones={materialesPresentes.map((material) => ({ value: material, label: material }))}
+          seleccionados={filtroMateriales}
+          onChange={setFiltroMateriales}
+        />
         {hayFiltrosActivos && (
           <button
             type="button"
             onClick={() => {
               setFiltroProveedor("");
-              setFiltroEtapa("");
-              setFiltroCategoria("");
-              setFiltroMaterial("");
+              setBusquedaDocumento("");
+              setFiltroEtapas([]);
+              setFiltroCategorias([]);
+              setFiltroMateriales([]);
             }}
             className={LINK_MUTED}
           >
             Limpiar filtros
           </button>
         )}
-        <span className="ml-auto text-sm text-zinc-500">
-          {hayFiltrosActivos ? `${totalItemsFiltrados} de ${totalItems} ítems` : `${totalItems} ítems`}
-        </span>
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <p className="text-sm text-zinc-500">
+          {hayFiltrosActivos ? "Total filtrado" : "Total de gastos"} · {totalItemsFiltrados} de {totalItems}{" "}
+          ítem{totalItems === 1 ? "" : "s"}
+        </p>
+        <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          {currencyFormatter.format(totalMontoFiltrado)}
+        </p>
       </div>
 
       {hayFiltrosActivos && totalItemsFiltrados === 0 && (
