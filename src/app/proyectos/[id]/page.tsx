@@ -15,6 +15,7 @@ import {
   formatFecha,
 } from "@/lib/format";
 import { BTN_SECONDARY, LINK_MUTED } from "@/lib/ui";
+import { DescargarAlertasBoton } from "./alertas-descargar-boton";
 
 const numberFormatter = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 });
 
@@ -272,9 +273,18 @@ export default async function ProyectoDetallePage({
       </div>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          Alertas de compra
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Alertas de compra</h2>
+          <DescargarAlertasBoton
+            alertas={alertas.map(({ etapa, diasHastaInicio }) => ({
+              etapa: etapa.catalogo!.nombre,
+              estado: estadoEtapaLabels[etapa.estado],
+              diasHastaInicio,
+              materiales: materialesPorEtapa.get(etapa.etapa_id) ?? [],
+            }))}
+            nombreProyecto={proyecto.nombre}
+          />
+        </div>
         {alertas.length === 0 && (
           <p className="text-sm text-zinc-500">
             No hay compras urgentes por ahora: ninguna etapa pendiente entra en su ventana de lead time.

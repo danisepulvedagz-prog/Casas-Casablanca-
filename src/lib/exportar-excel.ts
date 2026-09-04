@@ -42,3 +42,29 @@ export function descargarExcelGastos(filas: FilaExportable[], nombreArchivo: str
   XLSX.utils.book_append_sheet(libro, hoja, "Gastos");
   XLSX.writeFile(libro, nombreArchivo);
 }
+
+export interface FilaAlertaExportable {
+  etapa: string;
+  estado: string;
+  diasHastaInicio: string;
+  material: string;
+  cantidad: string;
+  unidad: string;
+}
+
+/** Igual que descargarExcelGastos, pero para las Alertas de compra ya visibles en pantalla. */
+export function descargarExcelAlertas(filas: FilaAlertaExportable[], nombreArchivo: string) {
+  const datos = filas.map((f) => ({
+    Etapa: f.etapa,
+    Estado: f.estado,
+    "Días hasta inicio / atraso": f.diasHastaInicio,
+    "Material / concepto": f.material,
+    "Cantidad estimada": f.cantidad,
+    Unidad: f.unidad,
+  }));
+  const hoja = XLSX.utils.json_to_sheet(datos);
+  hoja["!cols"] = [{ wch: 28 }, { wch: 12 }, { wch: 22 }, { wch: 30 }, { wch: 16 }, { wch: 12 }];
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja, "Alertas de compra");
+  XLSX.writeFile(libro, nombreArchivo);
+}
