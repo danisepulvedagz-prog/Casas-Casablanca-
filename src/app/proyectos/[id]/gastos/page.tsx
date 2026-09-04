@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { crearUrlFirmada } from "@/lib/storage";
 import { GastosListado } from "@/app/proyectos/[id]/gastos/gastos-listado";
+import { GuardadoToast } from "@/app/proyectos/[id]/gastos/guardado-toast";
 import { currencyFormatter } from "@/lib/format";
 import { BTN_PRIMARY } from "@/lib/ui";
 import type { Database } from "@/lib/supabase/types";
@@ -96,6 +97,7 @@ export default async function GastosPage({ params }: { params: Promise<{ id: str
           ← Volver a {proyecto.nombre}
         </Link>
       </div>
+      <GuardadoToast />
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">

@@ -101,7 +101,7 @@ export async function updateGasto(
   }
 
   revalidatePath(`/proyectos/${proyectoId}/gastos`);
-  redirect(`/proyectos/${proyectoId}/gastos`);
+  redirect(`/proyectos/${proyectoId}/gastos?guardado=1`);
 }
 
 // Una factura puede estar repartida entre varios proyectos (mismo documento,
@@ -188,7 +188,7 @@ export async function updateFactura(
   for (const pid of proyectosAfectados) {
     revalidatePath(`/proyectos/${pid}/gastos`);
   }
-  redirect(`/proyectos/${proyectoId}/gastos`);
+  redirect(`/proyectos/${proyectoId}/gastos?guardado=1`);
 }
 
 // Igual que deleteFactura: una transferencia de Material puede estar
@@ -277,7 +277,7 @@ export async function updateTransferencia(
   for (const pid of proyectosAfectados) {
     revalidatePath(`/proyectos/${pid}/gastos`);
   }
-  redirect(`/proyectos/${proyectoId}/gastos`);
+  redirect(`/proyectos/${proyectoId}/gastos?guardado=1`);
 }
 
 export async function deleteGasto(proyectoId: string, gastoId: string) {
@@ -478,7 +478,7 @@ export async function crearFacturaConGastos(
   for (const pid of proyectosAfectados) {
     revalidatePath(`/proyectos/${pid}/gastos`);
   }
-  redirect(`/proyectos/${proyectoId}/gastos`);
+  redirect(`/proyectos/${proyectoId}/gastos?guardado=1`);
 }
 
 // ---------------------------------------------------------------------
@@ -646,7 +646,7 @@ export async function crearTransferenciaConGasto(
   for (const pid of proyectosAfectados) {
     revalidatePath(`/proyectos/${pid}/gastos`);
   }
-  redirect(`/proyectos/${proyectoId}/gastos`);
+  redirect(`/proyectos/${proyectoId}/gastos?guardado=1`);
 }
 
 export interface FacturaDuplicada {
@@ -865,7 +865,7 @@ export async function updateFacturaConGastos(
   for (const pid of proyectosAfectados) {
     revalidatePath(`/proyectos/${pid}/gastos`);
   }
-  redirect(`/proyectos/${proyectoId}/gastos`);
+  redirect(`/proyectos/${proyectoId}/gastos?guardado=1`);
 }
 
 interface ItemTransferenciaEditable {
@@ -1019,5 +1019,5 @@ export async function updateTransferenciaConGastos(
   for (const pid of proyectosAfectados) {
     revalidatePath(`/proyectos/${pid}/gastos`);
   }
-  redirect(`/proyectos/${proyectoId}/gastos`);
+  redirect(`/proyectos/${proyectoId}/gastos?guardado=1`);
 }
