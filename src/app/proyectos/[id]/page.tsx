@@ -303,11 +303,13 @@ export default async function ProyectoDetallePage({
                     <summary className="cursor-pointer list-none px-4 py-3 select-none">
                       <div className="flex items-center justify-between gap-3">
                         <p className={`text-sm font-medium ${estilo.titulo}`}>
-                          {diasHastaInicio > 0
-                            ? `En ${diasHastaInicio} día${diasHastaInicio === 1 ? "" : "s"} comienza la etapa "${etapa.catalogo!.nombre}"`
-                            : diasHastaInicio === 0
-                              ? `La etapa "${etapa.catalogo!.nombre}" comienza hoy`
-                              : `La etapa "${etapa.catalogo!.nombre}" debería haber comenzado hace ${Math.abs(diasHastaInicio)} día${Math.abs(diasHastaInicio) === 1 ? "" : "s"}`}
+                          {etapa.estado === "en_curso"
+                            ? `La etapa "${etapa.catalogo!.nombre}" está en curso y todavía tiene materiales sin comprar`
+                            : diasHastaInicio > 0
+                              ? `En ${diasHastaInicio} día${diasHastaInicio === 1 ? "" : "s"} comienza la etapa "${etapa.catalogo!.nombre}"`
+                              : diasHastaInicio === 0
+                                ? `La etapa "${etapa.catalogo!.nombre}" comienza hoy`
+                                : `La etapa "${etapa.catalogo!.nombre}" debería haber comenzado hace ${Math.abs(diasHastaInicio)} día${Math.abs(diasHastaInicio) === 1 ? "" : "s"}`}
                         </p>
                         {materiales.length > 0 && (
                           <span className={`shrink-0 whitespace-nowrap text-xs ${estilo.label}`}>

@@ -10,7 +10,8 @@ interface AlertaExportable {
   materiales: { material: string; cantidad: number | null; unidad: string | null }[];
 }
 
-function textoDias(dias: number) {
+function textoDias(estado: string, dias: number) {
+  if (estado === "En curso") return "En curso";
   if (dias > 0) return `En ${dias} día${dias === 1 ? "" : "s"}`;
   if (dias === 0) return "Hoy";
   const abs = Math.abs(dias);
@@ -26,7 +27,7 @@ export function DescargarAlertasBoton({
 }) {
   function handleDescargar() {
     const filas = alertas.flatMap((a) => {
-      const diasHastaInicio = textoDias(a.diasHastaInicio);
+      const diasHastaInicio = textoDias(a.estado, a.diasHastaInicio);
       if (a.materiales.length === 0) {
         return [{ etapa: a.etapa, estado: a.estado, diasHastaInicio, material: "", cantidad: "", unidad: "" }];
       }
