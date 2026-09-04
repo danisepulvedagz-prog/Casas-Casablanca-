@@ -178,12 +178,18 @@ export default async function ProyectoDetallePage({
         : "A tiempo";
 
   const alertas = etapas
-    .filter((e) => e.estado === "pendiente" && e.fecha_inicio_plan)
+    .filter((e) => (e.estado === "pendiente" || e.estado === "en_curso") && e.fecha_inicio_plan)
     .map((e) => {
       const diasHastaInicio = diferenciaDias(parseFechaUTC(e.fecha_inicio_plan!), hoy);
       return { etapa: e, diasHastaInicio };
     })
-    .filter(({ etapa, diasHastaInicio }) => diasHastaInicio <= etapa.catalogo!.lead_time_dias_compra)
+    .filter(({ etapa, diasHastaInicio }) =>
+      // En curso: se avisa mientras queden materiales de la etapa sin ningún gasto
+      // registrado, sin importar la ventana de lead time (ya se está construyendo).
+      etapa.estado === "en_curso"
+        ? (materialesPorEtapa.get(etapa.etapa_id) ?? []).length > 0
+        : diasHastaInicio <= etapa.catalogo!.lead_time_dias_compra
+    )
     .sort((a, b) => a.diasHastaInicio - b.diasHastaInicio);
 
   return (
