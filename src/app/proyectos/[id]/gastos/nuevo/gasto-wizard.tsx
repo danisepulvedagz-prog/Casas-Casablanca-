@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   buscarFacturaDuplicada,
   buscarTransferenciaDuplicada,
@@ -645,7 +645,14 @@ function PasoMaterialRevisar({
         }))
       )
     );
-    return formAction(formData);
+    // formAction viene de useActionState, pero acá se llama a mano (no vía
+    // action={...}, ver el comentario más arriba) — sin startTransition,
+    // React avisa por consola que isPending nunca se pone en true, así que
+    // el botón se queda sin deshabilitarse ni mostrar "Guardando...", y en
+    // el celular alguien lo aprieta varias veces creyendo que no funcionó.
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   return (
@@ -1047,7 +1054,11 @@ function PasoMaterialManual({
         },
       ])
     );
-    return formAction(formData);
+    // Ver el comentario en handleSubmit de PasoMaterialRevisar sobre por qué
+    // esto va dentro de startTransition.
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   return (
@@ -1393,7 +1404,11 @@ function PasoTransferenciaRevisar({
       formData.set("etapa_id", etapaId);
     }
     if (datos.foto) formData.set("foto", datos.foto);
-    return formAction(formData);
+    // Ver el comentario en handleSubmit de PasoMaterialRevisar sobre por qué
+    // esto va dentro de startTransition.
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   return (
