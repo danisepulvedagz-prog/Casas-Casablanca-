@@ -117,7 +117,11 @@ Para cada ítem que identifiques en el documento:
   "Insumos de limpieza" existe en dos etapas (Retiro de escombros y limpieza, y Limpieza interior) con el
   mismo nombre y no se puede distinguir por el contenido de la boleta — por defecto usa "Limpieza interior",
   salvo que el documento o el contexto dejen claro que es limpieza de escombros/obra gruesa durante la
-  construcción;
+  construcción; una boleta de supermercado (ej. Cencosud/Santa Isabel/Jumbo, Líder, etc.) con productos de
+  aseo genéricos (paños o toallas de papel tipo "Toalla Home", limpiadores de marca como "Lysol" o "Cif",
+  detergentes, cloro, escobillas) y sin materiales de construcción es también "Insumos de limpieza" de
+  Limpieza interior — agrupa todos los productos de esa boleta en un solo ítem con el monto total de la
+  boleta, no los separes línea por línea;
   un gres/porcelánico de revestimiento de baño (ej. "POR.ESMAL.MATE..." u otro gres esmaltado para baño,
   no confundir con el porcelanato de piso de la etapa Instalación porcelanato) es "Revestimiento piso" o
   "Revestimiento muro" de la etapa Baños terminaciones según su formato: 60x60 es piso, 30x60 es muro).
