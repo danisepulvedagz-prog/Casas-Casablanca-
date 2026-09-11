@@ -14,9 +14,16 @@ import {
 } from "@/app/proyectos/[id]/gastos/actions";
 import { Combobox } from "@/components/combobox";
 import { formatFecha } from "@/lib/format";
-import { materialesParaEtapa, type CatalogoMaterial } from "@/lib/materiales";
+import {
+  cambiosAlCambiarEtapa,
+  esOtros,
+  materialesParaEtapa,
+  necesitaElegirEtapa,
+  validarEtapasOtros,
+  type CatalogoMaterial,
+} from "@/lib/materiales";
 import type { CategoriaGasto, Database } from "@/lib/supabase/types";
-import { BTN_PRIMARY, BTN_SECONDARY, LINK_MUTED } from "@/lib/ui";
+import { BTN_PRIMARY, BTN_SECONDARY, LINK_MUTED, SELECT_ETAPA_FALTANTE } from "@/lib/ui";
 
 type CatalogoEtapa = Database["public"]["Tables"]["catalogo_etapas"]["Row"];
 
@@ -438,16 +445,24 @@ function PasoMaterialSubirFoto({
           return;
         }
         const { data } = resultado;
-        const items: ItemEditable[] = data.items.map((it) => ({
-          key: crypto.randomUUID(),
-          material: it.material ?? "",
-          cantidad: it.cantidad != null ? String(it.cantidad) : "",
-          unidad: it.unidad ?? "",
-          montoTotal: it.monto_total != null ? String(it.monto_total) : "",
-          etapaId: it.etapa_id != null ? String(it.etapa_id) : "",
-          proyectoId,
-          notas: "",
-        }));
+        // Sin etapa_id la IA no encontró coincidencia en el catálogo para
+        // este producto — en vez de dejar en "Material" el nombre tal como
+        // vino en la boleta (que puede no calzar con ningún material real),
+        // se deja "Otros" y ese nombre pasa a Notas. La etapa queda vacía a
+        // propósito: la persona la elige a mano (ver necesitaElegirEtapa).
+        const items: ItemEditable[] = data.items.map((it) => {
+          const sinCoincidencia = it.etapa_id == null;
+          return {
+            key: crypto.randomUUID(),
+            material: sinCoincidencia ? "Otros" : it.material ?? "",
+            cantidad: it.cantidad != null ? String(it.cantidad) : "",
+            unidad: it.unidad ?? "",
+            montoTotal: it.monto_total != null ? String(it.monto_total) : "",
+            etapaId: it.etapa_id != null ? String(it.etapa_id) : "",
+            proyectoId,
+            notas: sinCoincidencia && it.material ? it.material : "",
+          };
+        });
         if (items.length === 0) items.push(nuevoItemVacio(proyectoId));
         const cabecera: CabeceraFactura = {
           proveedor: data.proveedor ?? "",
@@ -517,10 +532,12 @@ function PasoMaterialRevisar({
   const [cabecera, setCabecera] = useState<CabeceraFactura>(datos.cabecera);
   const [proyectosSeleccionados, setProyectosSeleccionados] = useState<string[]>([proyectoId]);
   const [facturaDuplicada, setFacturaDuplicada] = useState<FacturaDuplicada | null>(null);
+  const [errorEtapas, setErrorEtapas] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     crearFacturaConGastos.bind(null, proyectoId),
     {}
   );
+  const error = errorEtapas ?? state.error;
 
   // Advertencia blanda: si ya existe una factura con este mismo proveedor +
   // n° documento, se avisa (sin bloquear) para evitar cargar la misma boleta
@@ -615,7 +632,10 @@ function PasoMaterialRevisar({
   }
 
   function handleEtapaChange(it: ItemEditable, nuevaEtapaId: string) {
-    actualizarItem(it.key, { etapaId: nuevaEtapaId, material: "", unidad: "" });
+    actualizarItem(it.key, {
+      etapaId: nuevaEtapaId,
+      ...cambiosAlCambiarEtapa(materiales, it.material, nuevaEtapaId),
+    });
   }
 
   // React 19 resetea el <form> a nivel del navegador apenas termina un
@@ -625,6 +645,17 @@ function PasoMaterialRevisar({
   // llama a formAction() desde onSubmit en vez de usar action={...}, así el
   // form nunca queda wireado como "form action" y React no lo resetea solo.
   function handleSubmit() {
+    // Se valida ANTES de tocar el FormData: si falta elegir alguna etapa, se
+    // corta acá mismo y ni se llama a formAction — así la tabla de ítems
+    // queda intacta, tal como estaba, en vez de perderse en un viaje al
+    // servidor que de todos modos iba a rechazarla.
+    const mensajeEtapas = validarEtapasOtros(items);
+    if (mensajeEtapas) {
+      setErrorEtapas(mensajeEtapas);
+      return;
+    }
+    setErrorEtapas(null);
+
     const formData = new FormData();
     formData.set("proveedor", cabecera.proveedor);
     formData.set("n_documento", cabecera.nDocumento);
@@ -674,9 +705,9 @@ function PasoMaterialRevisar({
         }}
         className="grid gap-6"
       >
-        {state.error && (
+        {error && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-            {state.error}
+            {error}
           </p>
         )}
         {facturaDuplicada && (
@@ -814,7 +845,7 @@ function PasoMaterialRevisar({
                   <select
                     value={it.etapaId}
                     onChange={(e) => handleEtapaChange(it, e.target.value)}
-                    className={inputClass}
+                    className={`${inputClass} ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
                   >
                     <option value="">Sin etapa</option>
                     {etapasFila.map((etapa) => (
@@ -823,6 +854,11 @@ function PasoMaterialRevisar({
                       </option>
                     ))}
                   </select>
+                  {necesitaElegirEtapa(it.material, it.etapaId) && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                      Elige a qué etapa pertenece este material.
+                    </p>
+                  )}
                 </div>
                 <div className="mb-3">
                   <label className={labelClass}>Notas</label>
@@ -927,7 +963,7 @@ function PasoMaterialRevisar({
                       <select
                         value={it.etapaId}
                         onChange={(e) => handleEtapaChange(it, e.target.value)}
-                        className={`${inputClass} min-w-[220px]`}
+                        className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
                       >
                         <option value="">Sin etapa</option>
                         {etapasFila.map((etapa) => (
@@ -1018,6 +1054,8 @@ function PasoMaterialManual({
   const [etapaId, setEtapaId] = useState(String(etapaIdInicial ?? ""));
   const [material, setMaterial] = useState(materialInicial ?? "");
   const [unidad, setUnidad] = useState("");
+  const [errorEtapa, setErrorEtapa] = useState<string | null>(null);
+  const error = errorEtapa ?? state.error;
 
   const materialesFiltrados = useMemo(
     () => materialesParaEtapa(materiales, etapaId),
@@ -1039,6 +1077,12 @@ function PasoMaterialManual({
     const montoTotal = String(formData.get("monto_total") ?? "").trim();
     const etapaIdRaw = String(formData.get("etapa_id") ?? "").trim();
     const notas = String(formData.get("notas") ?? "").trim();
+
+    if (necesitaElegirEtapa(materialValue, etapaIdRaw)) {
+      setErrorEtapa('Elige a qué etapa pertenece el material marcado como "Otros" antes de guardar.');
+      return;
+    }
+    setErrorEtapa(null);
 
     formData.set("monto_total_factura", montoTotal);
     formData.set(
@@ -1076,9 +1120,9 @@ function PasoMaterialManual({
         }}
         className="grid max-w-md gap-4"
       >
-        {state.error && (
+        {error && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-            {state.error}
+            {error}
           </p>
         )}
         <div>
@@ -1094,11 +1138,14 @@ function PasoMaterialManual({
               // El material del catálogo depende de la etapa — se limpia al
               // cambiarla para forzar a elegir uno nuevo (si no, el
               // desplegable de sugerencias no aparece porque el campo ya
-              // tiene texto).
-              setMaterial("");
-              setUnidad("");
+              // tiene texto). "Otros" es la excepción: es válido en
+              // cualquier etapa, así que no hace falta borrarlo.
+              if (!esOtros(material)) {
+                setMaterial("");
+                setUnidad("");
+              }
             }}
-            className={inputClass}
+            className={`${inputClass} ${necesitaElegirEtapa(material, etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
           >
             <option value="">Sin etapa asociada</option>
             {etapas.map((etapa) => (
@@ -1307,6 +1354,8 @@ function PasoTransferenciaRevisar({
     crearTransferenciaConGasto.bind(null, proyectoId),
     {}
   );
+  const [errorEtapas, setErrorEtapas] = useState<string | null>(null);
+  const error = errorEtapas ?? state.error;
 
   const esMaterial = categoria === "Material";
 
@@ -1377,6 +1426,18 @@ function PasoTransferenciaRevisar({
   // FormData a mano y se dispara desde onSubmit, no action=..., para que
   // React no resetee el form (y los <select> de etapa/proyecto) al terminar.
   function handleSubmit() {
+    // Ver el mismo comentario en handleSubmit de PasoMaterialRevisar: se
+    // valida antes de tocar el FormData para que, si falta una etapa, la
+    // tabla de ítems no se toque ni se pierda nada.
+    if (esMaterial) {
+      const mensajeEtapas = validarEtapasOtros(items);
+      if (mensajeEtapas) {
+        setErrorEtapas(mensajeEtapas);
+        return;
+      }
+    }
+    setErrorEtapas(null);
+
     const formData = new FormData();
     formData.set("categoria", categoria);
     formData.set("destinatario", destinatario);
@@ -1430,9 +1491,9 @@ function PasoTransferenciaRevisar({
         }}
         className="grid gap-6"
       >
-        {state.error && (
+        {error && (
           <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-            {state.error}
+            {error}
           </p>
         )}
         {transferenciaDuplicada && (
@@ -1623,9 +1684,12 @@ function PasoTransferenciaRevisar({
                           <select
                             value={it.etapaId}
                             onChange={(e) =>
-                              actualizarItem(it.key, { etapaId: e.target.value, material: "", unidad: "" })
+                              actualizarItem(it.key, {
+                                etapaId: e.target.value,
+                                ...cambiosAlCambiarEtapa(materiales, it.material, e.target.value),
+                              })
                             }
-                            className={`${inputClass} min-w-[220px]`}
+                            className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
                           >
                             <option value="">Sin etapa</option>
                             {etapasFila.map((etapa) => (

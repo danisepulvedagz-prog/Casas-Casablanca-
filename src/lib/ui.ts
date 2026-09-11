@@ -12,3 +12,6 @@ export const BTN_SECONDARY =
 
 export const LINK_MUTED =
   "text-sm text-zinc-600 hover:text-brand hover:underline dark:text-zinc-400";
+
+// Falta elegir la etapa de un material "Otros" — ver necesitaElegirEtapa en lib/materiales.ts.
+export const SELECT_ETAPA_FALTANTE = "!border-red-500 focus:!border-red-500";

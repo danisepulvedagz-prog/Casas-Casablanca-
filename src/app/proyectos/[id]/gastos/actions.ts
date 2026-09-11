@@ -21,6 +21,15 @@ export interface ActionState {
 
 const CATEGORIAS: CategoriaGasto[] = ["Material", "Mano de Obra"];
 
+// "Otros" (ej. un producto que la IA no pudo relacionar con el catálogo)
+// necesita que la persona elija a mano a qué etapa pertenece — el cliente ya
+// bloquea el guardado mientras falte (ver necesitaElegirEtapa en
+// gasto-wizard.tsx), esto es solo el respaldo del lado del servidor.
+function esOtrosSinEtapa(material: string | null | undefined, etapaId: number | null): boolean {
+  return (material ?? "").trim().toLowerCase() === "otros" && etapaId == null;
+}
+const ERROR_OTROS_SIN_ETAPA = 'Falta elegir la etapa de un material marcado como "Otros".';
+
 function parseGastoForm(formData: FormData) {
   const categoria = String(formData.get("categoria") ?? "") as CategoriaGasto;
   const monto_total = Number(formData.get("monto_total"));
@@ -422,6 +431,9 @@ export async function crearFacturaConGastos(
     if (!Number.isFinite(item.monto_total) || item.monto_total <= 0) {
       return { error: `El monto de "${item.material}" debe ser un número mayor a 0.` };
     }
+    if (esOtrosSinEtapa(item.material, item.etapa_id)) {
+      return { error: ERROR_OTROS_SIN_ETAPA };
+    }
   }
 
   const foto = formData.get("foto");
@@ -541,6 +553,9 @@ export async function crearTransferenciaConGasto(
       }
       if (item.monto_total != null && (!Number.isFinite(item.monto_total) || item.monto_total < 0)) {
         return { error: `El monto de "${item.material}" no es válido.` };
+      }
+      if (esOtrosSinEtapa(item.material, item.etapa_id)) {
+        return { error: ERROR_OTROS_SIN_ETAPA };
       }
     }
 
@@ -771,6 +786,9 @@ export async function updateFacturaConGastos(
     if (!Number.isFinite(item.monto_total) || item.monto_total <= 0) {
       return { error: `El monto de "${item.material}" debe ser un número mayor a 0.` };
     }
+    if (esOtrosSinEtapa(item.material, item.etapa_id)) {
+      return { error: ERROR_OTROS_SIN_ETAPA };
+    }
   }
 
   const supabase = await createClient();
@@ -923,6 +941,9 @@ export async function updateTransferenciaConGastos(
     }
     if (!Number.isFinite(item.monto_total) || item.monto_total <= 0) {
       return { error: `El monto de "${item.material ?? item.categoria}" debe ser un número mayor a 0.` };
+    }
+    if (item.categoria === "Material" && esOtrosSinEtapa(item.material, item.etapa_id)) {
+      return { error: ERROR_OTROS_SIN_ETAPA };
     }
   }
 

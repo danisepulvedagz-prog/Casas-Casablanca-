@@ -1,12 +1,17 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { startTransition, useActionState, useState } from "react";
 import type { ActionState } from "@/app/proyectos/[id]/gastos/actions";
 import { Combobox } from "@/components/combobox";
-import { materialesParaEtapa, type CatalogoMaterial } from "@/lib/materiales";
+import {
+  cambiosAlCambiarEtapa,
+  materialesParaEtapa,
+  necesitaElegirEtapa,
+  validarEtapasOtros,
+  type CatalogoMaterial,
+} from "@/lib/materiales";
 import type { Database } from "@/lib/supabase/types";
-import { BTN_PRIMARY } from "@/lib/ui";
+import { BTN_PRIMARY, SELECT_ETAPA_FALTANTE } from "@/lib/ui";
 
 type Factura = Database["public"]["Tables"]["facturas"]["Row"];
 type Gasto = Database["public"]["Tables"]["gastos"]["Row"];
@@ -16,8 +21,7 @@ const inputClass =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
 const labelClass = "block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1";
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
+function SubmitButton({ pending }: { pending: boolean }) {
   return (
     <button type="submit" disabled={pending} className={BTN_PRIMARY}>
       {pending ? "Guardando..." : "Guardar cambios"}
@@ -83,9 +87,14 @@ export function FacturaForm({
   etapasPorProyecto: Record<string, CatalogoEtapa[]>;
   materiales: CatalogoMaterial[];
 }) {
-  const [state, formAction] = useActionState<ActionState, FormData>(action, {});
+  // Se captura isPending del propio useActionState (en vez de useFormStatus)
+  // porque el envío no pasa por action={...} en el <form> — ver el
+  // comentario de handleSubmit más abajo.
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(action, {});
   const [items, setItems] = useState<ItemEditable[]>(gastos.map(gastoAItem));
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
+  const [errorEtapas, setErrorEtapas] = useState<string | null>(null);
+  const error = errorEtapas ?? state.error;
 
   function actualizarItem(key: string, cambios: Partial<ItemEditable>) {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...cambios } : it)));
@@ -99,7 +108,52 @@ export function FacturaForm({
     });
   }
 
-  function handleSubmit(formData: FormData) {
+  function handleEtapaChange(it: ItemEditable, nuevaEtapaId: string) {
+    actualizarItem(it.key, {
+      etapaId: nuevaEtapaId,
+      ...cambiosAlCambiarEtapa(materiales, it.material, nuevaEtapaId),
+    });
+  }
+
+  function handleProyectoChange(it: ItemEditable, nuevoProyectoId: string) {
+    const etapasNuevoProyecto = etapasPorProyecto[nuevoProyectoId] ?? [];
+    const etapaSigueValida = etapasNuevoProyecto.some((et) => String(et.id) === it.etapaId);
+    actualizarItem(it.key, {
+      proyectoId: nuevoProyectoId,
+      etapaId: etapaSigueValida ? it.etapaId : "",
+    });
+  }
+
+  function handleCantidadChange(it: ItemEditable, nuevaCantidad: string) {
+    const cantidadAnterior = Number(it.cantidad);
+    const montoAnterior = Number(it.montoTotal);
+    const precioUnitario =
+      cantidadAnterior > 0 && it.montoTotal !== "" ? montoAnterior / cantidadAnterior : null;
+    const nuevoMonto =
+      precioUnitario != null && nuevaCantidad
+        ? String(Math.round(precioUnitario * Number(nuevaCantidad)))
+        : it.montoTotal;
+    actualizarItem(it.key, { cantidad: nuevaCantidad, montoTotal: nuevoMonto });
+  }
+
+  // Los campos de cabecera (proveedor, n° documento, fecha, monto, foto) van
+  // sin controlar y se leen directo del <form> con FormData al enviar — solo
+  // los ítems viven en estado de React. El <form> NO usa action={...}
+  // directo: React 19 resetea el <form> a nivel del navegador apenas termina
+  // esa acción (éxito o error, da lo mismo), y eso pisa los <select> de cada
+  // ítem aunque estén controlados por React. Se arma el FormData a mano y se
+  // llama a formAction() desde onSubmit para que eso nunca pase — así, si
+  // falta elegir una etapa, la tabla queda exactamente como estaba.
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const mensajeEtapas = validarEtapasOtros(items);
+    if (mensajeEtapas) {
+      setErrorEtapas(mensajeEtapas);
+      return;
+    }
+    setErrorEtapas(null);
+
+    const formData = new FormData(e.currentTarget);
     formData.set(
       "items_json",
       JSON.stringify(
@@ -116,18 +170,20 @@ export function FacturaForm({
       )
     );
     formData.set("deleted_ids_json", JSON.stringify(deletedIds));
-    return formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   return (
-    <form action={handleSubmit} className="grid gap-6">
-      {state.error && (
+    <form onSubmit={handleSubmit} className="grid gap-6">
+      {error && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {state.error}
+          {error}
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="grid grid-cols-1 gap-4 rounded-lg border border-zinc-200 p-4 sm:grid-cols-2 dark:border-zinc-800">
         <div>
           <label className={labelClass} htmlFor="proveedor">
             Proveedor
@@ -172,7 +228,7 @@ export function FacturaForm({
             className={inputClass}
           />
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className={labelClass} htmlFor="foto">
             Foto (opcional)
           </label>
@@ -196,7 +252,115 @@ export function FacturaForm({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+      <div className="grid gap-3 sm:hidden">
+        {items.map((it) => {
+          const etapasFila = etapasPorProyecto[it.proyectoId] ?? [];
+          const materialesFila = materialesParaEtapa(materiales, it.etapaId);
+          return (
+            <div key={it.key} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+              <div className="mb-3">
+                <label className={labelClass}>Material</label>
+                <Combobox
+                  value={it.material}
+                  onChange={(value) => {
+                    const match = materialesFila.find(
+                      (m) => m.material.trim().toLowerCase() === value.trim().toLowerCase()
+                    );
+                    actualizarItem(it.key, {
+                      material: value,
+                      ...(match ? { unidad: match.unidad_default } : {}),
+                    });
+                  }}
+                  options={materialesFila.map((m) => m.material)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="mb-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Cant.</label>
+                  <input
+                    type="number"
+                    value={it.cantidad}
+                    onChange={(e) => handleCantidadChange(it, e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Unidad</label>
+                  <input
+                    value={it.unidad}
+                    onChange={(e) => actualizarItem(it.key, { unidad: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className={labelClass}>Monto bruto</label>
+                <input
+                  type="number"
+                  value={it.montoTotal}
+                  onChange={(e) => actualizarItem(it.key, { montoTotal: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div className="mb-3">
+                <label className={labelClass}>Proyecto</label>
+                <select
+                  value={it.proyectoId}
+                  onChange={(e) => handleProyectoChange(it, e.target.value)}
+                  className={inputClass}
+                >
+                  {proyectos.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-3">
+                <label className={labelClass}>Etapa</label>
+                <select
+                  value={it.etapaId}
+                  onChange={(e) => handleEtapaChange(it, e.target.value)}
+                  className={`${inputClass} ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
+                >
+                  <option value="">Sin etapa</option>
+                  {etapasFila.map((etapa) => (
+                    <option key={etapa.id} value={etapa.id}>
+                      {etapa.orden}. {etapa.nombre}
+                    </option>
+                  ))}
+                </select>
+                {necesitaElegirEtapa(it.material, it.etapaId) && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    Elige a qué etapa pertenece este material.
+                  </p>
+                )}
+              </div>
+              <div className="mb-3">
+                <label className={labelClass}>Notas</label>
+                <input
+                  value={it.notas}
+                  placeholder="opcional"
+                  onChange={(e) => actualizarItem(it.key, { notas: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div className="border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => eliminarItem(it.key)}
+                  className="text-xs text-red-600 hover:underline dark:text-red-400"
+                >
+                  Quitar
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border border-zinc-200 sm:block dark:border-zinc-800">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
             <tr>
@@ -236,18 +400,7 @@ export function FacturaForm({
                     <input
                       type="number"
                       value={it.cantidad}
-                      onChange={(e) => {
-                        const nuevaCantidad = e.target.value;
-                        const cantidadAnterior = Number(it.cantidad);
-                        const montoAnterior = Number(it.montoTotal);
-                        const precioUnitario =
-                          cantidadAnterior > 0 && it.montoTotal !== "" ? montoAnterior / cantidadAnterior : null;
-                        const nuevoMonto =
-                          precioUnitario != null && nuevaCantidad
-                            ? String(Math.round(precioUnitario * Number(nuevaCantidad)))
-                            : it.montoTotal;
-                        actualizarItem(it.key, { cantidad: nuevaCantidad, montoTotal: nuevoMonto });
-                      }}
+                      onChange={(e) => handleCantidadChange(it, e.target.value)}
                       className={`${inputClass} !w-24`}
                     />
                   </td>
@@ -269,15 +422,7 @@ export function FacturaForm({
                   <td className="px-3 py-2">
                     <select
                       value={it.proyectoId}
-                      onChange={(e) => {
-                        const nuevoProyectoId = e.target.value;
-                        const etapasNuevoProyecto = etapasPorProyecto[nuevoProyectoId] ?? [];
-                        const etapaSigueValida = etapasNuevoProyecto.some((et) => String(et.id) === it.etapaId);
-                        actualizarItem(it.key, {
-                          proyectoId: nuevoProyectoId,
-                          etapaId: etapaSigueValida ? it.etapaId : "",
-                        });
-                      }}
+                      onChange={(e) => handleProyectoChange(it, e.target.value)}
                       className={`${inputClass} min-w-[180px]`}
                     >
                       {proyectos.map((p) => (
@@ -290,10 +435,8 @@ export function FacturaForm({
                   <td className="px-3 py-2">
                     <select
                       value={it.etapaId}
-                      onChange={(e) =>
-                        actualizarItem(it.key, { etapaId: e.target.value, material: "", unidad: "" })
-                      }
-                      className={`${inputClass} min-w-[220px]`}
+                      onChange={(e) => handleEtapaChange(it, e.target.value)}
+                      className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
                     >
                       <option value="">Sin etapa</option>
                       {etapasFila.map((etapa) => (
@@ -335,7 +478,7 @@ export function FacturaForm({
         >
           + Agregar ítem
         </button>
-        <SubmitButton />
+        <SubmitButton pending={isPending} />
       </div>
     </form>
   );
