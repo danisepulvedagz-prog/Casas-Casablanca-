@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/app/proyectos/actions";
-import type { Database, TipoTecho } from "@/lib/supabase/types";
+import type { Database, Modalidad, TipoTecho } from "@/lib/supabase/types";
 import { BTN_PRIMARY } from "@/lib/ui";
 
 // El presupuesto de la casa es el 80% de lo que el cliente firma en total
@@ -39,6 +39,10 @@ function SubmitButton({ label }: { label: string }) {
 export function ProyectoForm({ action, proyecto }: ProyectoFormProps) {
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
   const [tipoTecho, setTipoTecho] = useState<TipoTecho | "">(proyecto?.tipo_techo ?? "");
+  const [modalidadNueva, setModalidadNueva] = useState<Modalidad>("Obra Gruesa Habitable");
+  // La modalidad de un proyecto existente no se puede editar (select solo lectura
+  // más abajo), así que para un proyecto ya creado siempre se usa la suya.
+  const esPostventa = (proyecto?.modalidad ?? modalidadNueva) === "Postventa";
 
   const [contrato, setContrato] = useState(proyecto ? String(proyecto.contrato) : "");
   const [anexo1, setAnexo1] = useState(proyecto ? String(proyecto.anexo_1) : "");
@@ -91,122 +95,134 @@ export function ProyectoForm({ action, proyecto }: ProyectoFormProps) {
             id="modalidad"
             name="modalidad"
             required
-            defaultValue="Obra Gruesa Habitable"
+            value={modalidadNueva}
+            onChange={(e) => setModalidadNueva(e.target.value as Modalidad)}
             className={inputClass}
           >
             <option value="Obra Gruesa Habitable">Obra Gruesa Habitable</option>
             <option value="Llave en Mano">Llave en Mano</option>
+            <option value="Postventa">Postventa (sin etapas, solo gastos)</option>
           </select>
+        )}
+        {esPostventa && (
+          <p className="mt-1 text-xs text-zinc-500">
+            Un proyecto Postventa no tiene etapas ni cronograma — es solo para llevar los gastos
+            posteriores a la entrega de una casa ya terminada.
+          </p>
         )}
       </div>
 
-      <div>
-        <label className={labelClass} htmlFor="m2">
-          m²
-        </label>
-        <input
-          id="m2"
-          name="m2"
-          type="number"
-          step="0.01"
-          min="0"
-          required
-          defaultValue={proyecto?.m2}
-          className={inputClass}
-        />
-      </div>
-
-      <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Lo que firma el cliente
-        </p>
-        <div className="grid grid-cols-3 gap-4">
+      {!esPostventa && (
+        <>
           <div>
-            <label className={labelClass} htmlFor="contrato">
-              Contrato
+            <label className={labelClass} htmlFor="m2">
+              m²
             </label>
             <input
-              id="contrato"
-              name="contrato"
+              id="m2"
+              name="m2"
               type="number"
-              step="1"
+              step="0.01"
               min="0"
               required
-              value={contrato}
-              onChange={(e) => setContrato(e.target.value)}
+              defaultValue={proyecto?.m2}
               className={inputClass}
             />
           </div>
-          <div>
-            <label className={labelClass} htmlFor="anexo_1">
-              Anexo 1
-            </label>
-            <input
-              id="anexo_1"
-              name="anexo_1"
-              type="number"
-              step="1"
-              min="0"
-              placeholder="0"
-              value={anexo1}
-              onChange={(e) => setAnexo1(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="anexo_2">
-              Anexo 2
-            </label>
-            <input
-              id="anexo_2"
-              name="anexo_2"
-              type="number"
-              step="1"
-              min="0"
-              placeholder="0"
-              value={anexo2}
-              onChange={(e) => setAnexo2(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-        </div>
-        <p className="mt-3 text-sm text-zinc-500">
-          Presupuesto de la casa (80% de la suma de arriba):{" "}
-          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-            {currencyFormatter.format(presupuestoCalculado)}
-          </span>
-        </p>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass} htmlFor="n_dormitorios">
-            N° dormitorios
-          </label>
-          <input
-            id="n_dormitorios"
-            name="n_dormitorios"
-            type="number"
-            min="0"
-            defaultValue={proyecto?.n_dormitorios ?? ""}
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="n_banos">
-            N° baños (0,5 = baño de visita: wc + lavamanos, sin ducha)
-          </label>
-          <input
-            id="n_banos"
-            name="n_banos"
-            type="number"
-            min="0"
-            step="0.5"
-            defaultValue={proyecto?.n_banos ?? ""}
-            className={inputClass}
-          />
-        </div>
-      </div>
+          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+            <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Lo que firma el cliente
+            </p>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className={labelClass} htmlFor="contrato">
+                  Contrato
+                </label>
+                <input
+                  id="contrato"
+                  name="contrato"
+                  type="number"
+                  step="1"
+                  min="0"
+                  required
+                  value={contrato}
+                  onChange={(e) => setContrato(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="anexo_1">
+                  Anexo 1
+                </label>
+                <input
+                  id="anexo_1"
+                  name="anexo_1"
+                  type="number"
+                  step="1"
+                  min="0"
+                  placeholder="0"
+                  value={anexo1}
+                  onChange={(e) => setAnexo1(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="anexo_2">
+                  Anexo 2
+                </label>
+                <input
+                  id="anexo_2"
+                  name="anexo_2"
+                  type="number"
+                  step="1"
+                  min="0"
+                  placeholder="0"
+                  value={anexo2}
+                  onChange={(e) => setAnexo2(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-zinc-500">
+              Presupuesto de la casa (80% de la suma de arriba):{" "}
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                {currencyFormatter.format(presupuestoCalculado)}
+              </span>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass} htmlFor="n_dormitorios">
+                N° dormitorios
+              </label>
+              <input
+                id="n_dormitorios"
+                name="n_dormitorios"
+                type="number"
+                min="0"
+                defaultValue={proyecto?.n_dormitorios ?? ""}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="n_banos">
+                N° baños (0,5 = baño de visita: wc + lavamanos, sin ducha)
+              </label>
+              <input
+                id="n_banos"
+                name="n_banos"
+                type="number"
+                min="0"
+                step="0.5"
+                defaultValue={proyecto?.n_banos ?? ""}
+                className={inputClass}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -264,68 +280,72 @@ export function ProyectoForm({ action, proyecto }: ProyectoFormProps) {
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass} htmlFor="tipo_techo">
-            Tipo de techo
-          </label>
-          <select
-            id="tipo_techo"
-            name="tipo_techo"
-            value={tipoTecho}
-            onChange={(e) => setTipoTecho(e.target.value as TipoTecho | "")}
-            className={inputClass}
-          >
-            <option value="">Sin definir</option>
-            <option value="Mediterráneo">Mediterráneo</option>
-            <option value="Inclinado">Inclinado</option>
-          </select>
-        </div>
-        {tipoTecho === "Inclinado" && (
-          <div>
-            <label className={labelClass} htmlFor="opcion_techo_inclinado">
-              Opción de techo inclinado
-            </label>
-            <select
-              id="opcion_techo_inclinado"
-              name="opcion_techo_inclinado"
-              defaultValue={proyecto?.opcion_techo_inclinado ?? ""}
-              className={inputClass}
-            >
-              <option value="">Sin definir</option>
-              <option value="Teja asfáltica">Teja asfáltica</option>
-              <option value="Zinc prepintado">Zinc prepintado</option>
-            </select>
+      {!esPostventa && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass} htmlFor="tipo_techo">
+                Tipo de techo
+              </label>
+              <select
+                id="tipo_techo"
+                name="tipo_techo"
+                value={tipoTecho}
+                onChange={(e) => setTipoTecho(e.target.value as TipoTecho | "")}
+                className={inputClass}
+              >
+                <option value="">Sin definir</option>
+                <option value="Mediterráneo">Mediterráneo</option>
+                <option value="Inclinado">Inclinado</option>
+              </select>
+            </div>
+            {tipoTecho === "Inclinado" && (
+              <div>
+                <label className={labelClass} htmlFor="opcion_techo_inclinado">
+                  Opción de techo inclinado
+                </label>
+                <select
+                  id="opcion_techo_inclinado"
+                  name="opcion_techo_inclinado"
+                  defaultValue={proyecto?.opcion_techo_inclinado ?? ""}
+                  className={inputClass}
+                >
+                  <option value="">Sin definir</option>
+                  <option value="Teja asfáltica">Teja asfáltica</option>
+                  <option value="Zinc prepintado">Zinc prepintado</option>
+                </select>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            name="tiene_logia"
-            defaultChecked={proyecto?.tiene_logia ?? false}
-          />
-          Tiene logia
-        </label>
-        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            name="tiene_deck"
-            defaultChecked={proyecto?.tiene_deck ?? false}
-          />
-          Tiene deck
-        </label>
-        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            name="es_proyecto_referencia_m2"
-            defaultChecked={proyecto?.es_proyecto_referencia_m2 ?? false}
-          />
-          Usar como proyecto de referencia para calculadora de m²
-        </label>
-      </div>
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                name="tiene_logia"
+                defaultChecked={proyecto?.tiene_logia ?? false}
+              />
+              Tiene logia
+            </label>
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                name="tiene_deck"
+                defaultChecked={proyecto?.tiene_deck ?? false}
+              />
+              Tiene deck
+            </label>
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                name="es_proyecto_referencia_m2"
+                defaultChecked={proyecto?.es_proyecto_referencia_m2 ?? false}
+              />
+              Usar como proyecto de referencia para calculadora de m²
+            </label>
+          </div>
+        </>
+      )}
 
       <div>
         <SubmitButton label={proyecto ? "Guardar cambios" : "Crear proyecto"} />

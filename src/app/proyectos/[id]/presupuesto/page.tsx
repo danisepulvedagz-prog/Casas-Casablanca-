@@ -58,6 +58,7 @@ export default async function PresupuestoPage({ params }: { params: Promise<{ id
     .from("proyectos")
     .select("id, m2, n_banos")
     .eq("estado", "Terminado")
+    .neq("modalidad", "Postventa")
     .neq("id", id);
 
   const teoricoMaterialPorEtapaId = new Map<number, number>();

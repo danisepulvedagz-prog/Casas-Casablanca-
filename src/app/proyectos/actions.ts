@@ -23,13 +23,14 @@ const PORCENTAJE_PRESUPUESTO = 0.8;
 function parseProyectoForm(formData: FormData) {
   const nombre = String(formData.get("nombre") ?? "").trim();
   const modalidad = String(formData.get("modalidad") ?? "") as Modalidad;
-  const m2 = Number(formData.get("m2"));
+  const esPostventa = modalidad === "Postventa";
+  const m2 = esPostventa ? 0 : Number(formData.get("m2"));
   const contratoRaw = String(formData.get("contrato") ?? "").trim();
-  const contrato = contratoRaw ? Number(contratoRaw) : NaN;
+  const contrato = esPostventa ? 0 : contratoRaw ? Number(contratoRaw) : NaN;
   const anexo1Raw = String(formData.get("anexo_1") ?? "").trim();
-  const anexo_1 = anexo1Raw ? Number(anexo1Raw) : 0;
+  const anexo_1 = esPostventa ? 0 : anexo1Raw ? Number(anexo1Raw) : 0;
   const anexo2Raw = String(formData.get("anexo_2") ?? "").trim();
-  const anexo_2 = anexo2Raw ? Number(anexo2Raw) : 0;
+  const anexo_2 = esPostventa ? 0 : anexo2Raw ? Number(anexo2Raw) : 0;
   const fecha_inicio = String(formData.get("fecha_inicio") ?? "");
   const fecha_termino_estimada = String(formData.get("fecha_termino_estimada") ?? "") || null;
   const n_dormitorios = formData.get("n_dormitorios")
@@ -47,15 +48,20 @@ function parseProyectoForm(formData: FormData) {
     | null;
 
   if (!nombre) return { error: "El nombre del proyecto es obligatorio." } as const;
-  if (modalidad !== "Obra Gruesa Habitable" && modalidad !== "Llave en Mano") {
+  if (modalidad !== "Obra Gruesa Habitable" && modalidad !== "Llave en Mano" && modalidad !== "Postventa") {
     return { error: "Modalidad inválida." } as const;
   }
-  if (!Number.isFinite(m2) || m2 <= 0) return { error: "Los m² deben ser un número mayor a 0." } as const;
-  if (!Number.isFinite(contrato) || contrato < 0) {
-    return { error: "El Contrato debe ser un número válido." } as const;
-  }
-  if (!Number.isFinite(anexo_1) || anexo_1 < 0 || !Number.isFinite(anexo_2) || anexo_2 < 0) {
-    return { error: "Los anexos deben ser números válidos (pueden quedar en 0)." } as const;
+  // Un proyecto Postventa no tiene etapas ni cronograma — nace de una casa ya
+  // entregada, solo para llevar sus gastos posteriores — así que ninguno de
+  // los campos de construcción (m², contrato, anexos) aplica ni se valida.
+  if (!esPostventa) {
+    if (!Number.isFinite(m2) || m2 <= 0) return { error: "Los m² deben ser un número mayor a 0." } as const;
+    if (!Number.isFinite(contrato) || contrato < 0) {
+      return { error: "El Contrato debe ser un número válido." } as const;
+    }
+    if (!Number.isFinite(anexo_1) || anexo_1 < 0 || !Number.isFinite(anexo_2) || anexo_2 < 0) {
+      return { error: "Los anexos deben ser números válidos (pueden quedar en 0)." } as const;
+    }
   }
   if (!fecha_inicio) return { error: "La fecha de inicio es obligatoria." } as const;
   if (n_banos != null && (!Number.isFinite(n_banos) || n_banos < 0 || Math.round(n_banos * 2) !== n_banos * 2)) {

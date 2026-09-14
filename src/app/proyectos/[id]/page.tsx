@@ -85,6 +85,79 @@ export default async function ProyectoDetallePage({
   const { data: proyecto } = await supabase.from("proyectos").select("*").eq("id", id).single();
   if (!proyecto) notFound();
 
+  // Postventa no tiene etapas ni cronograma (nace de una casa ya Terminada,
+  // solo para llevar sus gastos posteriores a la entrega) — vista simplificada,
+  // sin consultar proyecto_etapas/catalogo_etapas ni nada de Alertas de compra.
+  if (proyecto.modalidad === "Postventa") {
+    const { data: gastosPostventa } = await supabase.from("gastos").select("monto_total").eq("proyecto_id", id);
+    const totalGastado = (gastosPostventa ?? []).reduce((s, g) => s + g.monto_total, 0);
+
+    return (
+      <div className="mx-auto w-full max-w-4xl px-6 py-10">
+        <div className="mb-2">
+          <Link href="/proyectos" className="text-sm text-zinc-500 hover:text-brand hover:underline">
+            ← Proyectos
+          </Link>
+        </div>
+
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{proyecto.nombre}</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Postventa{proyecto.cliente ? ` · ${proyecto.cliente}` : ""}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Link href={`/proyectos/${id}/gastos`} className={`${BTN_SECONDARY} gap-1.5`}>
+              <Icon name="receipt" className="h-4 w-4" />
+              Ver gastos
+            </Link>
+            <Link href={`/proyectos/${id}/presupuesto`} className={`${BTN_SECONDARY} gap-1.5`}>
+              <Icon name="currency" className="h-4 w-4" />
+              Presupuesto
+            </Link>
+            <Link href={`/proyectos/${id}/editar`} className={`${BTN_SECONDARY} gap-1.5`}>
+              <Icon name="pencil" className="h-4 w-4" />
+              Editar proyecto
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div className="flex items-start gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+            <Icon name="currency" className="mt-0.5 h-5 w-5 shrink-0 text-zinc-400" />
+            <div>
+              <p className="text-xs uppercase text-zinc-500">Total gastado</p>
+              <p className="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+                {currencyFormatter.format(totalGastado)}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+            <Icon name="clock" className="mt-0.5 h-5 w-5 shrink-0 text-zinc-400" />
+            <div>
+              <p className="text-xs uppercase text-zinc-500">Estado</p>
+              <p className="mt-1">
+                <span
+                  className={`rounded-full px-2 py-1 text-sm font-medium ${estadoProyectoStyles[proyecto.estado] ?? ""}`}
+                >
+                  {proyecto.estado}
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+            <Icon name="calendar" className="mt-0.5 h-5 w-5 shrink-0 text-zinc-400" />
+            <div>
+              <p className="text-xs uppercase text-zinc-500">Inicio</p>
+              <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                {formatFecha(proyecto.fecha_inicio)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const [
     { data: proyectoEtapas },
     { data: catalogoEtapas },
@@ -96,7 +169,12 @@ export default async function ProyectoDetallePage({
     supabase.from("catalogo_etapas").select("*").in("modalidad", modalidadesIncluidas(proyecto.modalidad)),
     supabase.from("catalogo_materiales").select("*"),
     supabase.from("gastos").select("*").eq("proyecto_id", id).eq("categoria", "Material"),
-    supabase.from("proyectos").select("id, m2, n_banos").eq("estado", "Terminado").neq("id", id),
+    supabase
+      .from("proyectos")
+      .select("id, m2, n_banos")
+      .eq("estado", "Terminado")
+      .neq("modalidad", "Postventa")
+      .neq("id", id),
   ]);
 
   // Estima cantidades esperadas por material en base al promedio de todos los proyectos

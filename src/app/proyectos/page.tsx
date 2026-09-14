@@ -19,6 +19,20 @@ export default async function ProyectosPage() {
     avancePorProyecto.set(e.proyecto_id, actual);
   }
 
+  // Postventa no tiene etapas ni presupuesto — su tarjeta muestra el total
+  // gastado en su lugar, así que se necesita la suma de sus gastos.
+  const idsPostventa = (proyectos ?? []).filter((p) => p.modalidad === "Postventa").map((p) => p.id);
+  const gastadoPorProyecto = new Map<string, number>();
+  if (idsPostventa.length > 0) {
+    const { data: gastosPostventa } = await supabase
+      .from("gastos")
+      .select("proyecto_id, monto_total")
+      .in("proyecto_id", idsPostventa);
+    for (const g of gastosPostventa ?? []) {
+      gastadoPorProyecto.set(g.proyecto_id, (gastadoPorProyecto.get(g.proyecto_id) ?? 0) + g.monto_total);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10">
       <div className="mb-6 flex items-center justify-between">
@@ -41,6 +55,7 @@ export default async function ProyectosPage() {
       {!error && proyectos && proyectos.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {proyectos.map((proyecto) => {
+            const esPostventa = proyecto.modalidad === "Postventa";
             const avance = avancePorProyecto.get(proyecto.id);
             const avancePct =
               avance && avance.total > 0 ? Math.round((avance.terminadas / avance.total) * 100) : 0;
@@ -59,7 +74,7 @@ export default async function ProyectosPage() {
                       {proyecto.nombre}
                     </Link>
                     <p className="mt-0.5 truncate text-xs text-zinc-500">
-                      {proyecto.modalidad} · {proyecto.m2} m²
+                      {esPostventa ? "Postventa" : `${proyecto.modalidad} · ${proyecto.m2} m²`}
                       {proyecto.cliente ? ` · ${proyecto.cliente}` : ""}
                     </p>
                   </div>
@@ -70,23 +85,27 @@ export default async function ProyectosPage() {
                   </span>
                 </div>
 
-                <div>
-                  <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
-                    <span>Avance de etapas</span>
-                    <span>{avance && avance.total > 0 ? `${avancePct}%` : "Sin etapas"}</span>
+                {!esPostventa && (
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
+                      <span>Avance de etapas</span>
+                      <span>{avance && avance.total > 0 ? `${avancePct}%` : "Sin etapas"}</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                      <div
+                        className="h-full rounded-full bg-brand transition-[width]"
+                        style={{ width: `${avancePct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <div
-                      className="h-full rounded-full bg-brand transition-[width]"
-                      style={{ width: `${avancePct}%` }}
-                    />
-                  </div>
-                </div>
+                )}
 
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Presupuesto:{" "}
+                  {esPostventa ? "Total gastado" : "Presupuesto"}:{" "}
                   <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {currencyFormatter.format(proyecto.presupuesto_total)}
+                    {currencyFormatter.format(
+                      esPostventa ? (gastadoPorProyecto.get(proyecto.id) ?? 0) : proyecto.presupuesto_total
+                    )}
                   </span>
                 </p>
 

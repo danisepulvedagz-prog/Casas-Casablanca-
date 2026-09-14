@@ -2,7 +2,7 @@
 // Once the Supabase project exists, regenerate with:
 //   pnpm dlx supabase gen types typescript --project-id <project-id> > src/lib/supabase/types.ts
 
-export type Modalidad = "Obra Gruesa Habitable" | "Llave en Mano";
+export type Modalidad = "Obra Gruesa Habitable" | "Llave en Mano" | "Postventa";
 export type EstadoProyecto = "En curso" | "Terminado" | "Pausado";
 export type EstadoEtapa = "pendiente" | "en_curso" | "terminada";
 export type TipoTecho = "Mediterráneo" | "Inclinado";
