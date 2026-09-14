@@ -305,7 +305,11 @@ export async function extraerItemsFactura(
   catalogoMateriales: CatalogoMaterialPrompt[]
 ): Promise<FacturaExtraida> {
   const prompt = construirPromptFactura(etapas, catalogoMateriales);
-  const texto = await llamarClaude(prompt, imagenBase64, mimeType, 4096);
+  // 4096 se quedaba corto con boletas de 15-20+ ítems (ej. una ferretería
+  // con una línea por cada tipo de codo/tapa/tornillo) — el stop_reason
+  // venía "max_tokens" y a veces cortaba justo antes de terminar el bloque
+  // de texto, dejando la respuesta vacía en vez de un JSON truncado.
+  const texto = await llamarClaude(prompt, imagenBase64, mimeType, 8192);
   let parsed: unknown;
   try {
     parsed = JSON.parse(limpiarRespuestaJSON(texto));
