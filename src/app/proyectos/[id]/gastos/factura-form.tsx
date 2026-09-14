@@ -146,7 +146,13 @@ export function FacturaForm({
   // falta elegir una etapa, la tabla queda exactamente como estaba.
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const mensajeEtapas = validarEtapasOtros(items);
+    const mensajeEtapas = validarEtapasOtros(
+      items.map((it) => ({
+        material: it.material,
+        etapaId: it.etapaId,
+        hayEtapasDisponibles: (etapasPorProyecto[it.proyectoId] ?? []).length > 0,
+      }))
+    );
     if (mensajeEtapas) {
       setErrorEtapas(mensajeEtapas);
       return;
@@ -322,7 +328,7 @@ export function FacturaForm({
                 <select
                   value={it.etapaId}
                   onChange={(e) => handleEtapaChange(it, e.target.value)}
-                  className={`${inputClass} ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
+                  className={`${inputClass} ${necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) ? SELECT_ETAPA_FALTANTE : ""}`}
                 >
                   <option value="">Sin etapa</option>
                   {etapasFila.map((etapa) => (
@@ -331,7 +337,7 @@ export function FacturaForm({
                     </option>
                   ))}
                 </select>
-                {necesitaElegirEtapa(it.material, it.etapaId) && (
+                {necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) && (
                   <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                     Elige a qué etapa pertenece este material.
                   </p>
@@ -436,7 +442,7 @@ export function FacturaForm({
                     <select
                       value={it.etapaId}
                       onChange={(e) => handleEtapaChange(it, e.target.value)}
-                      className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
+                      className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) ? SELECT_ETAPA_FALTANTE : ""}`}
                     >
                       <option value="">Sin etapa</option>
                       {etapasFila.map((etapa) => (

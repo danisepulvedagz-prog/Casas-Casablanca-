@@ -30,6 +30,24 @@ function esOtrosSinEtapa(material: string | null | undefined, etapaId: number | 
 }
 const ERROR_OTROS_SIN_ETAPA = 'Falta elegir la etapa de un material marcado como "Otros".';
 
+/**
+ * Postventa no tiene ninguna etapa disponible (no tiene cronograma) — para
+ * esos proyectos "Otros" sin etapa es válido y no se bloquea (ver el mismo
+ * criterio en necesitaElegirEtapa de lib/materiales.ts, del lado cliente).
+ * Devuelve el subconjunto de proyectoIds que son Postventa.
+ */
+async function proyectosPostventaEntre(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  proyectoIds: Set<string>
+): Promise<Set<string>> {
+  if (proyectoIds.size === 0) return new Set();
+  const { data } = await supabase
+    .from("proyectos")
+    .select("id, modalidad")
+    .in("id", Array.from(proyectoIds));
+  return new Set((data ?? []).filter((p) => p.modalidad === "Postventa").map((p) => p.id));
+}
+
 function parseGastoForm(formData: FormData) {
   const categoria = String(formData.get("categoria") ?? "") as CategoriaGasto;
   const monto_total = Number(formData.get("monto_total"));
@@ -424,6 +442,12 @@ export async function crearFacturaConGastos(
   if (!Array.isArray(items) || items.length === 0) {
     return { error: "Agrega al menos un ítem antes de guardar." };
   }
+
+  const supabase = await createClient();
+  const postventaIds = await proyectosPostventaEntre(
+    supabase,
+    new Set(items.map((it) => it.proyecto_id ?? proyectoId).concat(proyectoId))
+  );
   for (const item of items) {
     if (!item.material || !String(item.material).trim()) {
       return { error: "Todos los ítems necesitan un nombre de material." };
@@ -431,7 +455,7 @@ export async function crearFacturaConGastos(
     if (!Number.isFinite(item.monto_total) || item.monto_total <= 0) {
       return { error: `El monto de "${item.material}" debe ser un número mayor a 0.` };
     }
-    if (esOtrosSinEtapa(item.material, item.etapa_id)) {
+    if (!postventaIds.has(item.proyecto_id ?? proyectoId) && esOtrosSinEtapa(item.material, item.etapa_id)) {
       return { error: ERROR_OTROS_SIN_ETAPA };
     }
   }
@@ -444,7 +468,6 @@ export async function crearFacturaConGastos(
     return { error: err instanceof Error ? err.message : "No se pudo subir la foto." };
   }
 
-  const supabase = await createClient();
   const { data: facturaCreada, error: facturaError } = await supabase
     .from("facturas")
     .insert({
@@ -536,6 +559,7 @@ export async function crearTransferenciaConGasto(
 
   let items: ItemTransferenciaInput[] = [];
   let etapa_id: number | null = null;
+  const supabase = await createClient();
 
   if (categoria === "Material") {
     const itemsRaw = String(formData.get("items_json") ?? "[]");
@@ -547,6 +571,10 @@ export async function crearTransferenciaConGasto(
     if (!Array.isArray(items) || items.length === 0) {
       return { error: "Agrega al menos un material antes de guardar." };
     }
+    const postventaIds = await proyectosPostventaEntre(
+      supabase,
+      new Set(items.map((it) => it.proyecto_id ?? proyectoId).concat(proyectoId))
+    );
     for (const item of items) {
       if (!item.material || !String(item.material).trim()) {
         return { error: "Todos los ítems necesitan un nombre de material." };
@@ -554,7 +582,7 @@ export async function crearTransferenciaConGasto(
       if (item.monto_total != null && (!Number.isFinite(item.monto_total) || item.monto_total < 0)) {
         return { error: `El monto de "${item.material}" no es válido.` };
       }
-      if (esOtrosSinEtapa(item.material, item.etapa_id)) {
+      if (!postventaIds.has(item.proyecto_id ?? proyectoId) && esOtrosSinEtapa(item.material, item.etapa_id)) {
         return { error: ERROR_OTROS_SIN_ETAPA };
       }
     }
@@ -596,7 +624,6 @@ export async function crearTransferenciaConGasto(
     return { error: err instanceof Error ? err.message : "No se pudo subir la foto." };
   }
 
-  const supabase = await createClient();
   const { data: transferenciaCreada, error: transferenciaError } = await supabase
     .from("transferencias")
     .insert({
@@ -779,6 +806,12 @@ export async function updateFacturaConGastos(
   if (!Array.isArray(items) || items.length === 0) {
     return { error: "La factura necesita al menos un ítem." };
   }
+
+  const supabase = await createClient();
+  const postventaIds = await proyectosPostventaEntre(
+    supabase,
+    new Set(items.map((it) => it.proyecto_id).concat(proyectoId))
+  );
   for (const item of items) {
     if (!item.material || !String(item.material).trim()) {
       return { error: "Todos los ítems necesitan un nombre de material." };
@@ -786,12 +819,10 @@ export async function updateFacturaConGastos(
     if (!Number.isFinite(item.monto_total) || item.monto_total <= 0) {
       return { error: `El monto de "${item.material}" debe ser un número mayor a 0.` };
     }
-    if (esOtrosSinEtapa(item.material, item.etapa_id)) {
+    if (!postventaIds.has(item.proyecto_id) && esOtrosSinEtapa(item.material, item.etapa_id)) {
       return { error: ERROR_OTROS_SIN_ETAPA };
     }
   }
-
-  const supabase = await createClient();
 
   const { data: gastosPrevios } = await supabase
     .from("gastos")
@@ -934,6 +965,12 @@ export async function updateTransferenciaConGastos(
   if (!Array.isArray(items) || items.length === 0) {
     return { error: "La transferencia necesita al menos un ítem." };
   }
+
+  const supabase = await createClient();
+  const postventaIds = await proyectosPostventaEntre(
+    supabase,
+    new Set(items.map((it) => it.proyecto_id).concat(proyectoId))
+  );
   for (const item of items) {
     if (!CATEGORIAS.includes(item.categoria)) return { error: "Selecciona una categoría válida en cada ítem." };
     if (item.categoria === "Material" && (!item.material || !String(item.material).trim())) {
@@ -942,12 +979,14 @@ export async function updateTransferenciaConGastos(
     if (!Number.isFinite(item.monto_total) || item.monto_total <= 0) {
       return { error: `El monto de "${item.material ?? item.categoria}" debe ser un número mayor a 0.` };
     }
-    if (item.categoria === "Material" && esOtrosSinEtapa(item.material, item.etapa_id)) {
+    if (
+      item.categoria === "Material" &&
+      !postventaIds.has(item.proyecto_id) &&
+      esOtrosSinEtapa(item.material, item.etapa_id)
+    ) {
       return { error: ERROR_OTROS_SIN_ETAPA };
     }
   }
-
-  const supabase = await createClient();
 
   const { data: gastosPrevios } = await supabase
     .from("gastos")

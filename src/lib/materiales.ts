@@ -33,9 +33,13 @@ export function esOtros(material: string): boolean {
  * leer una boleta) necesita que la persona elija a mano a qué etapa
  * pertenece — mientras esa etapa siga sin elegirse, el ítem se marca como
  * pendiente (ver SELECT_ETAPA_FALTANTE en lib/ui.ts para el estilo).
+ *
+ * Un proyecto Postventa no tiene ninguna etapa disponible (no tiene
+ * cronograma) — para esos, "Sin etapa" es la única opción válida y nunca se
+ * exige elegir una: pasa hayEtapasDisponibles = etapasDelProyecto.length > 0.
  */
-export function necesitaElegirEtapa(material: string, etapaId: string): boolean {
-  return esOtros(material) && !etapaId;
+export function necesitaElegirEtapa(material: string, etapaId: string, hayEtapasDisponibles: boolean): boolean {
+  return hayEtapasDisponibles && esOtros(material) && !etapaId;
 }
 
 /**
@@ -62,8 +66,10 @@ export function cambiosAlCambiarEtapa(
  * llamarse ANTES de armar el FormData y disparar la acción de servidor, para
  * que si falla no se pierda nada de lo ya editado.
  */
-export function validarEtapasOtros(items: { material: string; etapaId: string }[]): string | null {
-  const faltantes = items.filter((it) => necesitaElegirEtapa(it.material, it.etapaId));
+export function validarEtapasOtros(
+  items: { material: string; etapaId: string; hayEtapasDisponibles: boolean }[]
+): string | null {
+  const faltantes = items.filter((it) => necesitaElegirEtapa(it.material, it.etapaId, it.hayEtapasDisponibles));
   if (faltantes.length === 0) return null;
   return faltantes.length === 1
     ? 'Falta elegir la etapa del material marcado como "Otros" (recuadro en rojo) antes de guardar.'

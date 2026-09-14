@@ -649,7 +649,13 @@ function PasoMaterialRevisar({
     // corta acá mismo y ni se llama a formAction — así la tabla de ítems
     // queda intacta, tal como estaba, en vez de perderse en un viaje al
     // servidor que de todos modos iba a rechazarla.
-    const mensajeEtapas = validarEtapasOtros(items);
+    const mensajeEtapas = validarEtapasOtros(
+      items.map((it) => ({
+        material: it.material,
+        etapaId: it.etapaId,
+        hayEtapasDisponibles: (etapasPorProyecto[it.proyectoId] ?? etapas).length > 0,
+      }))
+    );
     if (mensajeEtapas) {
       setErrorEtapas(mensajeEtapas);
       return;
@@ -845,7 +851,7 @@ function PasoMaterialRevisar({
                   <select
                     value={it.etapaId}
                     onChange={(e) => handleEtapaChange(it, e.target.value)}
-                    className={`${inputClass} ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
+                    className={`${inputClass} ${necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) ? SELECT_ETAPA_FALTANTE : ""}`}
                   >
                     <option value="">Sin etapa</option>
                     {etapasFila.map((etapa) => (
@@ -854,7 +860,7 @@ function PasoMaterialRevisar({
                       </option>
                     ))}
                   </select>
-                  {necesitaElegirEtapa(it.material, it.etapaId) && (
+                  {necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) && (
                     <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                       Elige a qué etapa pertenece este material.
                     </p>
@@ -963,7 +969,7 @@ function PasoMaterialRevisar({
                       <select
                         value={it.etapaId}
                         onChange={(e) => handleEtapaChange(it, e.target.value)}
-                        className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
+                        className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) ? SELECT_ETAPA_FALTANTE : ""}`}
                       >
                         <option value="">Sin etapa</option>
                         {etapasFila.map((etapa) => (
@@ -1078,7 +1084,7 @@ function PasoMaterialManual({
     const etapaIdRaw = String(formData.get("etapa_id") ?? "").trim();
     const notas = String(formData.get("notas") ?? "").trim();
 
-    if (necesitaElegirEtapa(materialValue, etapaIdRaw)) {
+    if (necesitaElegirEtapa(materialValue, etapaIdRaw, etapas.length > 0)) {
       setErrorEtapa('Elige a qué etapa pertenece el material marcado como "Otros" antes de guardar.');
       return;
     }
@@ -1145,7 +1151,7 @@ function PasoMaterialManual({
                 setUnidad("");
               }
             }}
-            className={`${inputClass} ${necesitaElegirEtapa(material, etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
+            className={`${inputClass} ${necesitaElegirEtapa(material, etapaId, etapas.length > 0) ? SELECT_ETAPA_FALTANTE : ""}`}
           >
             <option value="">Sin etapa asociada</option>
             {etapas.map((etapa) => (
@@ -1430,7 +1436,13 @@ function PasoTransferenciaRevisar({
     // valida antes de tocar el FormData para que, si falta una etapa, la
     // tabla de ítems no se toque ni se pierda nada.
     if (esMaterial) {
-      const mensajeEtapas = validarEtapasOtros(items);
+      const mensajeEtapas = validarEtapasOtros(
+        items.map((it) => ({
+          material: it.material,
+          etapaId: it.etapaId,
+          hayEtapasDisponibles: (etapasPorProyecto[it.proyectoId] ?? etapas).length > 0,
+        }))
+      );
       if (mensajeEtapas) {
         setErrorEtapas(mensajeEtapas);
         return;
@@ -1683,7 +1695,7 @@ function PasoTransferenciaRevisar({
                             ...cambiosAlCambiarEtapa(materiales, it.material, e.target.value),
                           })
                         }
-                        className={`${inputClass} ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
+                        className={`${inputClass} ${necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) ? SELECT_ETAPA_FALTANTE : ""}`}
                       >
                         <option value="">Sin etapa</option>
                         {etapasFila.map((etapa) => (
@@ -1692,7 +1704,7 @@ function PasoTransferenciaRevisar({
                           </option>
                         ))}
                       </select>
-                      {necesitaElegirEtapa(it.material, it.etapaId) && (
+                      {necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) && (
                         <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                           Elige a qué etapa pertenece este material.
                         </p>
@@ -1839,7 +1851,7 @@ function PasoTransferenciaRevisar({
                                 ...cambiosAlCambiarEtapa(materiales, it.material, e.target.value),
                               })
                             }
-                            className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId) ? SELECT_ETAPA_FALTANTE : ""}`}
+                            className={`${inputClass} min-w-[220px] ${necesitaElegirEtapa(it.material, it.etapaId, etapasFila.length > 0) ? SELECT_ETAPA_FALTANTE : ""}`}
                           >
                             <option value="">Sin etapa</option>
                             {etapasFila.map((etapa) => (
