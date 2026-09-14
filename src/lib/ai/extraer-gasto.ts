@@ -268,12 +268,23 @@ async function llamarClaude(
 
       const bloqueTexto = response.content.find((b) => b.type === "text");
       const texto = bloqueTexto && "text" in bloqueTexto ? bloqueTexto.text : "";
-      if (!texto) throw new Error("La IA no devolvió ninguna respuesta.");
+      if (!texto) {
+        // No debería pasar (no se piden tools ni thinking, la respuesta
+        // siempre debería traer un bloque de texto) — se deja registrado acá
+        // por si vuelve a ocurrir, para poder ver en los logs de Vercel qué
+        // devolvió realmente Claude en vez de adivinar a ciegas.
+        console.error(
+          "Respuesta de Claude sin texto:",
+          JSON.stringify({ stopReason: response.stop_reason, tiposDeBloque: response.content.map((b) => b.type) })
+        );
+        throw new Error("La IA no devolvió ninguna respuesta.");
+      }
       return texto;
     } catch (err) {
       const status = err instanceof APIError ? err.status : undefined;
+      const esRespuestaVacia = err instanceof Error && err.message === "La IA no devolvió ninguna respuesta.";
       const quedanReintentos = intento < REINTENTOS;
-      if (status != null && STATUS_REINTENTABLES.has(status) && quedanReintentos) {
+      if (((status != null && STATUS_REINTENTABLES.has(status)) || esRespuestaVacia) && quedanReintentos) {
         await esperar(1000 * (intento + 1)); // 1s, luego 2s
         continue;
       }
