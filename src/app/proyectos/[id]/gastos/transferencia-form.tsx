@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useState } from "react";
 import type { ActionState } from "@/app/proyectos/[id]/gastos/actions";
+import { conRedSegura } from "@/lib/accion-segura";
 import { Combobox } from "@/components/combobox";
 import {
   cambiosAlCambiarEtapa,
@@ -95,7 +96,7 @@ export function TransferenciaForm({
   // Se captura isPending del propio useActionState (en vez de useFormStatus)
   // porque el envío no pasa por action={...} en el <form> — ver el
   // comentario de handleSubmit más abajo.
-  const [state, formAction, isPending] = useActionState<ActionState, FormData>(action, {});
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(conRedSegura(action), {});
   const [items, setItems] = useState<ItemEditable[]>(
     gastos.length > 0 ? gastos.map(gastoAItem) : [nuevoItemVacio(proyectoId, "Material")]
   );

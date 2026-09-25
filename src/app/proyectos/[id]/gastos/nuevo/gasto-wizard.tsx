@@ -13,6 +13,7 @@ import {
   type TransferenciaDuplicada,
 } from "@/app/proyectos/[id]/gastos/actions";
 import { Combobox } from "@/components/combobox";
+import { conRedSegura } from "@/lib/accion-segura";
 import { formatFecha } from "@/lib/format";
 import {
   cambiosAlCambiarEtapa,
@@ -128,6 +129,16 @@ function verificarTamano(archivoFinal: File) {
   throw new Error(
     `La foto pesa demasiado incluso después de comprimirla (${pesoMb} MB). Prueba sacándole una foto solo a la factura (sin el resto de la mesa/fondo) o con menos zoom.`
   );
+}
+
+// Cuando se corta la señal a mitad de la subida, el fetch del lado del
+// navegador rechaza con un TypeError genérico en inglés ("Failed to
+// fetch") — se cambia por un mensaje que sí explica qué pasó.
+function mensajeDeError(err: unknown, fallback: string): string {
+  if (err instanceof TypeError && /fetch/i.test(err.message)) {
+    return "No se pudo conectar con el servidor — revisa tu conexión a internet e intenta de nuevo.";
+  }
+  return err instanceof Error ? err.message : fallback;
 }
 
 // No usa useFormStatus() a propósito — estos forms disparan el guardado
@@ -472,7 +483,7 @@ function PasoMaterialSubirFoto({
         };
         onExtraido(items, cabecera, file);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo leer la imagen.");
+        setError(mensajeDeError(err, "No se pudo leer la imagen."));
       }
     });
   }
@@ -534,7 +545,7 @@ function PasoMaterialRevisar({
   const [facturaDuplicada, setFacturaDuplicada] = useState<FacturaDuplicada | null>(null);
   const [errorEtapas, setErrorEtapas] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    crearFacturaConGastos.bind(null, proyectoId),
+    conRedSegura(crearFacturaConGastos.bind(null, proyectoId)),
     {}
   );
   const error = errorEtapas ?? state.error;
@@ -687,6 +698,9 @@ function PasoMaterialRevisar({
     // React avisa por consola que isPending nunca se pone en true, así que
     // el botón se queda sin deshabilitarse ni mostrar "Guardando...", y en
     // el celular alguien lo aprieta varias veces creyendo que no funcionó.
+    // (Si se corta la conexión justo al guardar, eso lo atrapa conRedSegura
+    // alrededor de la action misma — ver el useActionState de arriba — no
+    // acá: formAction() no devuelve una promesa que se pueda esperar.)
     startTransition(() => {
       formAction(formData);
     });
@@ -1052,7 +1066,7 @@ function PasoMaterialManual({
   onVolver: () => void;
 }) {
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    crearFacturaConGastos.bind(null, proyectoId),
+    conRedSegura(crearFacturaConGastos.bind(null, proyectoId)),
     {}
   );
   const mostrarVolver = etapaIdInicial == null && !materialInicial;
@@ -1289,7 +1303,7 @@ function PasoTransferenciaSubirFoto({
           foto: file,
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo leer la imagen.");
+        setError(mensajeDeError(err, "No se pudo leer la imagen."));
       }
     });
   }
@@ -1357,7 +1371,7 @@ function PasoTransferenciaRevisar({
   onVolver: () => void;
 }) {
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    crearTransferenciaConGasto.bind(null, proyectoId),
+    conRedSegura(crearTransferenciaConGasto.bind(null, proyectoId)),
     {}
   );
   const [errorEtapas, setErrorEtapas] = useState<string | null>(null);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/app/proyectos/[id]/gastos/actions";
+import { conRedSegura } from "@/lib/accion-segura";
 import { Combobox } from "@/components/combobox";
 import type { Database } from "@/lib/supabase/types";
 import { BTN_PRIMARY } from "@/lib/ui";
@@ -72,7 +73,7 @@ export function GastoForm({
   facturaPadre,
   transferenciaPadre,
 }: GastoFormProps) {
-  const [state, formAction] = useActionState<ActionState, FormData>(action, {});
+  const [state, formAction] = useActionState<ActionState, FormData>(conRedSegura(action), {});
 
   const [categoria, setCategoria] = useState(gasto?.categoria ?? "Material");
   const [etapaId, setEtapaId] = useState(String(gasto?.etapa_id ?? etapaIdInicial ?? ""));
