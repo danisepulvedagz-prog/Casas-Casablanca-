@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { subirFotoGasto } from "@/lib/storage";
 import { modalidadesIncluidas } from "@/lib/etapas";
+import { normalizarRut } from "@/lib/rut";
 import {
   extraerItemsFactura,
   extraerDatosTransferencia,
@@ -174,7 +175,7 @@ export async function updateFactura(
   formData: FormData
 ): Promise<ActionState> {
   const proveedor = String(formData.get("proveedor") ?? "").trim() || null;
-  const rut = String(formData.get("rut") ?? "").trim() || null;
+  const rut = normalizarRut(String(formData.get("rut") ?? "").trim() || null);
   const n_documento = String(formData.get("n_documento") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -264,7 +265,7 @@ export async function updateTransferencia(
   formData: FormData
 ): Promise<ActionState> {
   const destinatario = String(formData.get("destinatario") ?? "").trim() || null;
-  const rut = String(formData.get("rut") ?? "").trim() || null;
+  const rut = normalizarRut(String(formData.get("rut") ?? "").trim() || null);
   const n_operacion = String(formData.get("n_operacion") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -427,7 +428,7 @@ export async function crearFacturaConGastos(
   formData: FormData
 ): Promise<ActionState> {
   const proveedor = String(formData.get("proveedor") ?? "").trim() || null;
-  const rut = String(formData.get("rut") ?? "").trim() || null;
+  const rut = normalizarRut(String(formData.get("rut") ?? "").trim() || null);
   const n_documento = String(formData.get("n_documento") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoFacturaRaw = String(formData.get("monto_total_factura") ?? "").trim();
@@ -550,7 +551,7 @@ export async function crearTransferenciaConGasto(
 ): Promise<ActionState> {
   const categoria = String(formData.get("categoria") ?? "") as CategoriaGasto;
   const destinatario = String(formData.get("destinatario") ?? "").trim() || null;
-  const rut = String(formData.get("rut") ?? "").trim() || null;
+  const rut = normalizarRut(String(formData.get("rut") ?? "").trim() || null);
   const n_operacion = String(formData.get("n_operacion") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -789,7 +790,7 @@ export async function updateFacturaConGastos(
   formData: FormData
 ): Promise<ActionState> {
   const proveedor = String(formData.get("proveedor") ?? "").trim() || null;
-  const rut = String(formData.get("rut") ?? "").trim() || null;
+  const rut = normalizarRut(String(formData.get("rut") ?? "").trim() || null);
   const n_documento = String(formData.get("n_documento") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -949,7 +950,7 @@ export async function updateTransferenciaConGastos(
   formData: FormData
 ): Promise<ActionState> {
   const destinatario = String(formData.get("destinatario") ?? "").trim() || null;
-  const rut = String(formData.get("rut") ?? "").trim() || null;
+  const rut = normalizarRut(String(formData.get("rut") ?? "").trim() || null);
   const n_operacion = String(formData.get("n_operacion") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();

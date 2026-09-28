@@ -143,10 +143,11 @@ columna no es legible con confianza, usa null en vez de inventar o calcular un n
 Devuelve SOLO un JSON válido (sin markdown, sin texto extra) con esta forma exacta:
 {
   "proveedor": string o null (nombre del local/empresa que emite el documento),
-  "rut": string o null (RUT del proveedor/emisor del documento, formato XX.XXX.XXX-X — el que aparece junto
-    al nombre o logo del local/empresa que vende, en el encabezado; NO el RUT del cliente/comprador que
-    suele aparecer más abajo en una sección "Sres:"/"Cliente:"/"Señor(es):" — si el documento solo trae un
-    RUT y no queda claro si es de la empresa o del cliente, usa null),
+  "rut": string o null (RUT del proveedor/emisor del documento, SIN puntos y CON guion — ej "76647271-0",
+    aunque en el documento aparezca con puntos — el que aparece junto al nombre o logo del local/empresa
+    que vende, en el encabezado; NO el RUT del cliente/comprador que suele aparecer más abajo en una
+    sección "Sres:"/"Cliente:"/"Señor(es):" — si el documento solo trae un RUT y no queda claro si es de
+    la empresa o del cliente, usa null),
   "n_documento": string o null (número de boleta, factura o cotización),
   "fecha": string o null (formato YYYY-MM-DD),
   "monto_total": number o null (monto total del documento completo, en pesos chilenos, sin puntos ni símbolos),
@@ -168,8 +169,8 @@ const PROMPT_TRANSFERENCIA = `Eres un asistente que extrae datos de capturas de 
 Devuelve SOLO un JSON válido (sin markdown, sin texto extra) con esta forma exacta:
 {
   "destinatario": string o null (nombre de la persona o empresa a la que se transfirió, tal como aparece en el comprobante),
-  "rut": string o null (RUT del destinatario, formato XX.XXX.XXX-X, si el comprobante lo muestra — muchos
-    comprobantes bancarios no lo traen, en ese caso usa null),
+  "rut": string o null (RUT del destinatario, SIN puntos y CON guion — ej "76647271-0" — si el comprobante
+    lo muestra; muchos comprobantes bancarios no lo traen, en ese caso usa null),
   "n_operacion": string o null (número de operación, folio o comprobante de la transferencia),
   "monto_total": number o null (monto transferido en pesos chilenos, sin puntos ni símbolos),
   "fecha": string o null (formato YYYY-MM-DD)
