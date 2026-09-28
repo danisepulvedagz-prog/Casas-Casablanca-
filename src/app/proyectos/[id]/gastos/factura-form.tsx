@@ -198,6 +198,12 @@ export function FacturaForm({
           <input id="proveedor" name="proveedor" defaultValue={factura.proveedor ?? ""} className={inputClass} />
         </div>
         <div>
+          <label className={labelClass} htmlFor="rut">
+            RUT proveedor
+          </label>
+          <input id="rut" name="rut" defaultValue={factura.rut ?? ""} className={inputClass} />
+        </div>
+        <div>
           <label className={labelClass} htmlFor="n_documento">
             N° documento
           </label>

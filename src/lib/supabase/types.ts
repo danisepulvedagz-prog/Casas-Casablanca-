@@ -241,6 +241,7 @@ export interface Database {
           id: string;
           proyecto_id: string;
           proveedor: string | null;
+          rut: string | null;
           n_documento: string | null;
           fecha: string;
           foto_url: string | null;
@@ -251,6 +252,7 @@ export interface Database {
           id?: string;
           proyecto_id: string;
           proveedor?: string | null;
+          rut?: string | null;
           n_documento?: string | null;
           fecha: string;
           foto_url?: string | null;
@@ -261,6 +263,7 @@ export interface Database {
           id?: string;
           proyecto_id?: string;
           proveedor?: string | null;
+          rut?: string | null;
           n_documento?: string | null;
           fecha?: string;
           foto_url?: string | null;

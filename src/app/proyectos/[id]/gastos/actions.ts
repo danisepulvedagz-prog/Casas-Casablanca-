@@ -174,6 +174,7 @@ export async function updateFactura(
   formData: FormData
 ): Promise<ActionState> {
   const proveedor = String(formData.get("proveedor") ?? "").trim() || null;
+  const rut = String(formData.get("rut") ?? "").trim() || null;
   const n_documento = String(formData.get("n_documento") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -199,7 +200,7 @@ export async function updateFactura(
 
   const { error } = await supabase
     .from("facturas")
-    .update({ proveedor, n_documento, fecha, monto_total, ...fotoUpdate })
+    .update({ proveedor, rut, n_documento, fecha, monto_total, ...fotoUpdate })
     .eq("id", facturaId);
 
   if (error) {
@@ -425,6 +426,7 @@ export async function crearFacturaConGastos(
   formData: FormData
 ): Promise<ActionState> {
   const proveedor = String(formData.get("proveedor") ?? "").trim() || null;
+  const rut = String(formData.get("rut") ?? "").trim() || null;
   const n_documento = String(formData.get("n_documento") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoFacturaRaw = String(formData.get("monto_total_factura") ?? "").trim();
@@ -473,6 +475,7 @@ export async function crearFacturaConGastos(
     .insert({
       proyecto_id: proyectoId,
       proveedor,
+      rut,
       n_documento,
       fecha,
       foto_url,
@@ -783,6 +786,7 @@ export async function updateFacturaConGastos(
   formData: FormData
 ): Promise<ActionState> {
   const proveedor = String(formData.get("proveedor") ?? "").trim() || null;
+  const rut = String(formData.get("rut") ?? "").trim() || null;
   const n_documento = String(formData.get("n_documento") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -843,7 +847,7 @@ export async function updateFacturaConGastos(
 
   const { error: facturaError } = await supabase
     .from("facturas")
-    .update({ proveedor, n_documento, fecha, monto_total, ...fotoUpdate })
+    .update({ proveedor, rut, n_documento, fecha, monto_total, ...fotoUpdate })
     .eq("id", facturaId);
   if (facturaError) {
     return { error: `No se pudo actualizar la factura: ${facturaError.message}` };

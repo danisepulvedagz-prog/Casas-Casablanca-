@@ -233,6 +233,7 @@ function useItemsEditables(inicial: ItemEditable[]) {
 
 interface CabeceraFactura {
   proveedor: string;
+  rut: string;
   nDocumento: string;
   fecha: string;
   montoTotalFactura: string;
@@ -269,7 +270,7 @@ export function GastoWizard({
   );
   const [datosFactura, setDatosFactura] = useState<DatosFacturaPendiente>({
     items: [],
-    cabecera: { proveedor: "", nDocumento: "", fecha: today(), montoTotalFactura: "" },
+    cabecera: { proveedor: "", rut: "", nDocumento: "", fecha: today(), montoTotalFactura: "" },
     foto: null,
   });
   const [datosTransferencia, setDatosTransferencia] = useState<DatosTransferenciaPendiente>({
@@ -477,6 +478,7 @@ function PasoMaterialSubirFoto({
         if (items.length === 0) items.push(nuevoItemVacio(proyectoId));
         const cabecera: CabeceraFactura = {
           proveedor: data.proveedor ?? "",
+          rut: data.rut ?? "",
           nDocumento: data.n_documento ?? "",
           fecha: data.fecha ?? today(),
           montoTotalFactura: data.monto_total != null ? String(data.monto_total) : "",
@@ -675,6 +677,7 @@ function PasoMaterialRevisar({
 
     const formData = new FormData();
     formData.set("proveedor", cabecera.proveedor);
+    formData.set("rut", cabecera.rut);
     formData.set("n_documento", cabecera.nDocumento);
     formData.set("fecha", cabecera.fecha);
     formData.set("monto_total_factura", cabecera.montoTotalFactura);
@@ -747,6 +750,14 @@ function PasoMaterialRevisar({
             <input
               value={cabecera.proveedor}
               onChange={(e) => setCabecera({ ...cabecera, proveedor: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>RUT proveedor</label>
+            <input
+              value={cabecera.rut}
+              onChange={(e) => setCabecera({ ...cabecera, rut: e.target.value })}
               className={inputClass}
             />
           </div>
@@ -1228,11 +1239,17 @@ function PasoMaterialManual({
             <input id="proveedor" name="proveedor" className={inputClass} />
           </div>
           <div>
-            <label className={labelClass} htmlFor="n_documento">
-              N° factura / boleta
+            <label className={labelClass} htmlFor="rut">
+              RUT proveedor
             </label>
-            <input id="n_documento" name="n_documento" className={inputClass} />
+            <input id="rut" name="rut" className={inputClass} />
           </div>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="n_documento">
+            N° factura / boleta
+          </label>
+          <input id="n_documento" name="n_documento" className={inputClass} />
         </div>
         <div>
           <label className={labelClass} htmlFor="fecha">

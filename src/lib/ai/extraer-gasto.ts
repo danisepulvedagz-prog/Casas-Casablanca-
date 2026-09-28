@@ -22,6 +22,7 @@ export interface ItemFacturaExtraido {
 
 export interface FacturaExtraida {
   proveedor: string | null;
+  rut: string | null;
   n_documento: string | null;
   fecha: string | null; // YYYY-MM-DD
   monto_total: number | null;
@@ -141,6 +142,10 @@ columna no es legible con confianza, usa null en vez de inventar o calcular un n
 Devuelve SOLO un JSON válido (sin markdown, sin texto extra) con esta forma exacta:
 {
   "proveedor": string o null (nombre del local/empresa que emite el documento),
+  "rut": string o null (RUT del proveedor/emisor del documento, formato XX.XXX.XXX-X — el que aparece junto
+    al nombre o logo del local/empresa que vende, en el encabezado; NO el RUT del cliente/comprador que
+    suele aparecer más abajo en una sección "Sres:"/"Cliente:"/"Señor(es):" — si el documento solo trae un
+    RUT y no queda claro si es de la empresa o del cliente, usa null),
   "n_documento": string o null (número de boleta, factura o cotización),
   "fecha": string o null (formato YYYY-MM-DD),
   "monto_total": number o null (monto total del documento completo, en pesos chilenos, sin puntos ni símbolos),
@@ -320,6 +325,7 @@ export async function extraerItemsFactura(
   const p = parsed as Partial<FacturaExtraida>;
   return corregirIvaItems({
     proveedor: p.proveedor ?? null,
+    rut: p.rut ?? null,
     n_documento: p.n_documento ?? null,
     fecha: p.fecha ?? null,
     monto_total: p.monto_total ?? null,
