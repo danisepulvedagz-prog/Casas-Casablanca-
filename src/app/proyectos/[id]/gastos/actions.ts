@@ -264,6 +264,7 @@ export async function updateTransferencia(
   formData: FormData
 ): Promise<ActionState> {
   const destinatario = String(formData.get("destinatario") ?? "").trim() || null;
+  const rut = String(formData.get("rut") ?? "").trim() || null;
   const n_operacion = String(formData.get("n_operacion") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -289,7 +290,7 @@ export async function updateTransferencia(
 
   const { error } = await supabase
     .from("transferencias")
-    .update({ destinatario, n_operacion, fecha, monto_total, ...fotoUpdate })
+    .update({ destinatario, rut, n_operacion, fecha, monto_total, ...fotoUpdate })
     .eq("id", transferenciaId);
 
   if (error) {
@@ -549,6 +550,7 @@ export async function crearTransferenciaConGasto(
 ): Promise<ActionState> {
   const categoria = String(formData.get("categoria") ?? "") as CategoriaGasto;
   const destinatario = String(formData.get("destinatario") ?? "").trim() || null;
+  const rut = String(formData.get("rut") ?? "").trim() || null;
   const n_operacion = String(formData.get("n_operacion") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -632,6 +634,7 @@ export async function crearTransferenciaConGasto(
     .insert({
       proyecto_id: proyectoId,
       destinatario,
+      rut,
       n_operacion,
       fecha,
       foto_url,
@@ -946,6 +949,7 @@ export async function updateTransferenciaConGastos(
   formData: FormData
 ): Promise<ActionState> {
   const destinatario = String(formData.get("destinatario") ?? "").trim() || null;
+  const rut = String(formData.get("rut") ?? "").trim() || null;
   const n_operacion = String(formData.get("n_operacion") ?? "").trim() || null;
   const fecha = String(formData.get("fecha") ?? "");
   const montoRaw = String(formData.get("monto_total") ?? "").trim();
@@ -1011,7 +1015,7 @@ export async function updateTransferenciaConGastos(
 
   const { error: transferenciaError } = await supabase
     .from("transferencias")
-    .update({ destinatario, n_operacion, fecha, monto_total, ...fotoUpdate })
+    .update({ destinatario, rut, n_operacion, fecha, monto_total, ...fotoUpdate })
     .eq("id", transferenciaId);
   if (transferenciaError) {
     return { error: `No se pudo actualizar la transferencia: ${transferenciaError.message}` };

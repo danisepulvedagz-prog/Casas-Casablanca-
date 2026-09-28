@@ -213,6 +213,12 @@ export function TransferenciaForm({
           />
         </div>
         <div>
+          <label className={labelClass} htmlFor="rut">
+            RUT destinatario
+          </label>
+          <input id="rut" name="rut" defaultValue={transferencia.rut ?? ""} className={inputClass} />
+        </div>
+        <div>
           <label className={labelClass} htmlFor="n_operacion">
             N° operación
           </label>

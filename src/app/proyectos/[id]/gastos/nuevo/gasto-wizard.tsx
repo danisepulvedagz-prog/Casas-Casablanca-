@@ -247,6 +247,7 @@ interface DatosFacturaPendiente {
 
 interface DatosTransferenciaPendiente {
   destinatario: string;
+  rut: string;
   nOperacion: string;
   fecha: string;
   montoTotal: string;
@@ -275,6 +276,7 @@ export function GastoWizard({
   });
   const [datosTransferencia, setDatosTransferencia] = useState<DatosTransferenciaPendiente>({
     destinatario: "",
+    rut: "",
     nOperacion: "",
     fecha: today(),
     montoTotal: "",
@@ -1314,6 +1316,7 @@ function PasoTransferenciaSubirFoto({
         const { data } = resultado;
         onListo({
           destinatario: data.destinatario ?? "",
+          rut: data.rut ?? "",
           nOperacion: data.n_operacion ?? "",
           fecha: data.fecha ?? today(),
           montoTotal: data.monto_total != null ? String(data.monto_total) : "",
@@ -1327,7 +1330,7 @@ function PasoTransferenciaSubirFoto({
 
   function handleContinuarSinLeer() {
     const file = fotoInputRef.current?.files?.[0] ?? null;
-    onListo({ destinatario: "", nOperacion: "", fecha: today(), montoTotal: "", foto: file });
+    onListo({ destinatario: "", rut: "", nOperacion: "", fecha: today(), montoTotal: "", foto: file });
   }
 
   return (
@@ -1397,6 +1400,7 @@ function PasoTransferenciaRevisar({
   const esMaterial = categoria === "Material";
 
   const [destinatario, setDestinatario] = useState(datos.destinatario);
+  const [rut, setRut] = useState(datos.rut);
   const [nOperacion, setNOperacion] = useState(datos.nOperacion);
   const [fecha, setFecha] = useState(datos.fecha || today());
   const [montoTotal, setMontoTotal] = useState(datos.montoTotal);
@@ -1484,6 +1488,7 @@ function PasoTransferenciaRevisar({
     const formData = new FormData();
     formData.set("categoria", categoria);
     formData.set("destinatario", destinatario);
+    formData.set("rut", rut);
     formData.set("n_operacion", nOperacion);
     formData.set("fecha", fecha);
     formData.set("monto_total", montoTotal);
@@ -1554,6 +1559,10 @@ function PasoTransferenciaRevisar({
           <div>
             <label className={labelClass}>Destinatario</label>
             <input value={destinatario} onChange={(e) => setDestinatario(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>RUT destinatario</label>
+            <input value={rut} onChange={(e) => setRut(e.target.value)} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>N° operación</label>

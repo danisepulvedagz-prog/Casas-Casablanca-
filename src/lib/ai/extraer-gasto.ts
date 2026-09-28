@@ -31,6 +31,7 @@ export interface FacturaExtraida {
 
 export interface DatosTransferenciaExtraidos {
   destinatario: string | null;
+  rut: string | null;
   n_operacion: string | null;
   monto_total: number | null;
   fecha: string | null; // YYYY-MM-DD
@@ -167,6 +168,8 @@ const PROMPT_TRANSFERENCIA = `Eres un asistente que extrae datos de capturas de 
 Devuelve SOLO un JSON válido (sin markdown, sin texto extra) con esta forma exacta:
 {
   "destinatario": string o null (nombre de la persona o empresa a la que se transfirió, tal como aparece en el comprobante),
+  "rut": string o null (RUT del destinatario, formato XX.XXX.XXX-X, si el comprobante lo muestra — muchos
+    comprobantes bancarios no lo traen, en ese caso usa null),
   "n_operacion": string o null (número de operación, folio o comprobante de la transferencia),
   "monto_total": number o null (monto transferido en pesos chilenos, sin puntos ni símbolos),
   "fecha": string o null (formato YYYY-MM-DD)
