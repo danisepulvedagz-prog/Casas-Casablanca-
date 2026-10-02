@@ -742,6 +742,7 @@ function PasoMaterialRevisar({
             {facturaDuplicada.monto_total != null
               ? ` por $${facturaDuplicada.monto_total.toLocaleString("es-CL")}`
               : ""}
+            {facturaDuplicada.proyectoNombre ? ` en el proyecto "${facturaDuplicada.proyectoNombre}"` : ""}
             . Puede ser un duplicado — revisa antes de guardar.
           </p>
         )}
@@ -1550,6 +1551,9 @@ function PasoTransferenciaRevisar({
             {formatFecha(transferenciaDuplicada.fecha)}
             {transferenciaDuplicada.monto_total != null
               ? ` por $${transferenciaDuplicada.monto_total.toLocaleString("es-CL")}`
+              : ""}
+            {transferenciaDuplicada.proyectoNombre
+              ? ` en el proyecto "${transferenciaDuplicada.proyectoNombre}"`
               : ""}
             . Puede ser un duplicado — revisa antes de guardar.
           </p>

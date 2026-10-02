@@ -702,6 +702,7 @@ export interface FacturaDuplicada {
   id: string;
   fecha: string;
   monto_total: number | null;
+  proyectoNombre: string | null;
 }
 
 /**
@@ -720,7 +721,7 @@ export async function buscarFacturaDuplicada(
   const supabase = await createClient();
   const { data } = await supabase
     .from("facturas")
-    .select("id, fecha, monto_total")
+    .select("id, fecha, monto_total, proyecto_id")
     // ilike sin comodines exige coincidencia EXACTA (salvo mayúsculas) — con
     // %...% queda como "contiene", más tolerante a que la IA transcriba el
     // proveedor con espacios/tildes/puntos levemente distintos entre una
@@ -730,13 +731,17 @@ export async function buscarFacturaDuplicada(
     .limit(1)
     .maybeSingle();
 
-  return data;
+  if (!data) return null;
+  const { proyecto_id, ...resto } = data;
+  const { data: proyecto } = await supabase.from("proyectos").select("nombre").eq("id", proyecto_id).single();
+  return { ...resto, proyectoNombre: proyecto?.nombre ?? null };
 }
 
 export interface TransferenciaDuplicada {
   id: string;
   fecha: string;
   monto_total: number | null;
+  proyectoNombre: string | null;
 }
 
 /**
@@ -754,7 +759,7 @@ export async function buscarTransferenciaDuplicada(
   const supabase = await createClient();
   const { data } = await supabase
     .from("transferencias")
-    .select("id, fecha, monto_total")
+    .select("id, fecha, monto_total, proyecto_id")
     // Ver el mismo comentario en buscarFacturaDuplicada: sin %...% ilike
     // exige coincidencia exacta, muy estricta para texto leído por IA.
     .ilike("destinatario", `%${destinatarioTrim}%`)
@@ -762,7 +767,10 @@ export async function buscarTransferenciaDuplicada(
     .limit(1)
     .maybeSingle();
 
-  return data;
+  if (!data) return null;
+  const { proyecto_id, ...resto } = data;
+  const { data: proyecto } = await supabase.from("proyectos").select("nombre").eq("id", proyecto_id).single();
+  return { ...resto, proyectoNombre: proyecto?.nombre ?? null };
 }
 
 interface ItemFacturaEditable {
