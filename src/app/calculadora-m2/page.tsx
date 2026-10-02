@@ -15,7 +15,7 @@ export default async function CalculadoraM2Page() {
     .from("proyectos")
     .select("id, nombre, m2, n_banos")
     .eq("estado", "Terminado")
-    .neq("modalidad", "Postventa")
+    .eq("es_proyecto_referencia_m2", true)
     .order("nombre");
 
   let ratios: ReturnType<typeof calcularRatiosPromedio> = [];

@@ -173,7 +173,7 @@ export default async function ProyectoDetallePage({
       .from("proyectos")
       .select("id, m2, n_banos")
       .eq("estado", "Terminado")
-      .neq("modalidad", "Postventa")
+      .eq("es_proyecto_referencia_m2", true)
       .neq("id", id),
   ]);
 
