@@ -951,6 +951,7 @@ export async function updateFacturaConGastos(
         costo_unitario: cantidad && cantidad > 0 ? monto / cantidad : null,
         monto_total: monto,
         notas: item.notas?.trim() || null,
+        fecha,
       })
       .eq("id", item.id!)
       .eq("factura_id", facturaId);
@@ -1118,6 +1119,7 @@ export async function updateTransferenciaConGastos(
         costo_unitario: cantidad && cantidad > 0 ? monto / cantidad : null,
         monto_total: monto,
         notas: item.notas?.trim() || null,
+        fecha,
       })
       .eq("id", item.id!)
       .eq("transferencia_id", transferenciaId);
