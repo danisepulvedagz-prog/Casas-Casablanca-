@@ -59,6 +59,8 @@ export function GastosListado({
   const [filtroEtapas, setFiltroEtapas] = useState<string[]>([]);
   const [filtroCategorias, setFiltroCategorias] = useState<string[]>([]);
   const [filtroMateriales, setFiltroMateriales] = useState<string[]>([]);
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
 
   const nombreEtapa = useMemo(() => new Map(etapas.map((e) => [e.id, e.nombre])), [etapas]);
 
@@ -105,7 +107,9 @@ export function GastosListado({
     busquedaDocumento.trim() ||
     filtroEtapas.length ||
     filtroCategorias.length ||
-    filtroMateriales.length
+    filtroMateriales.length ||
+    filtroFechaDesde ||
+    filtroFechaHasta
   );
 
   function coincide(gasto: Gasto, proveedorCabecera: string | null, docCabecera: string | null) {
@@ -123,6 +127,8 @@ export function GastosListado({
     if (filtroMateriales.length > 0 && (!gasto.material || !filtroMateriales.includes(gasto.material))) {
       return false;
     }
+    if (filtroFechaDesde && gasto.fecha < filtroFechaDesde) return false;
+    if (filtroFechaHasta && gasto.fecha > filtroFechaHasta) return false;
     return true;
   }
 
@@ -132,7 +138,7 @@ export function GastosListado({
         .map((f) => ({ ...f, itemsFiltrados: f.items.filter((g) => coincide(g, f.proveedor, f.n_documento)) }))
         .filter((f) => f.itemsFiltrados.length > 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [facturas, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales]
+    [facturas, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales, filtroFechaDesde, filtroFechaHasta]
   );
 
   const transferenciasFiltradas = useMemo(
@@ -144,13 +150,13 @@ export function GastosListado({
         }))
         .filter((t) => t.itemsFiltrados.length > 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transferencias, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales]
+    [transferencias, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales, filtroFechaDesde, filtroFechaHasta]
   );
 
   const gastosSueltosFiltrados = useMemo(
     () => gastosSueltos.filter((g) => coincide(g, g.proveedor, g.n_documento)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [gastosSueltos, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales]
+    [gastosSueltos, filtroProveedor, busquedaDocumento, filtroEtapas, filtroCategorias, filtroMateriales, filtroFechaDesde, filtroFechaHasta]
   );
 
   const totalItems = todosLosItems.length;
@@ -240,6 +246,25 @@ export function GastosListado({
           seleccionados={filtroMateriales}
           onChange={setFiltroMateriales}
         />
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={filtroFechaDesde}
+            onChange={(e) => setFiltroFechaDesde(e.target.value)}
+            max={filtroFechaHasta || undefined}
+            aria-label="Desde"
+            className={selectClass}
+          />
+          <span className="text-sm text-zinc-400">–</span>
+          <input
+            type="date"
+            value={filtroFechaHasta}
+            onChange={(e) => setFiltroFechaHasta(e.target.value)}
+            min={filtroFechaDesde || undefined}
+            aria-label="Hasta"
+            className={selectClass}
+          />
+        </div>
         {hayFiltrosActivos && (
           <button
             type="button"
@@ -249,6 +274,8 @@ export function GastosListado({
               setFiltroEtapas([]);
               setFiltroCategorias([]);
               setFiltroMateriales([]);
+              setFiltroFechaDesde("");
+              setFiltroFechaHasta("");
             }}
             className={LINK_MUTED}
           >
