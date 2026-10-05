@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { diferenciaDias, hoyUTC, parseFechaUTC } from "@/lib/fechas";
 import { modalidadesIncluidas } from "@/lib/etapas";
-import { calcularRatiosPromedio, estimar } from "@/lib/calculadora-m2";
+import { calcularRatiosPromedio, type RatioMaterial } from "@/lib/calculadora-m2";
+import { calcularResumenProyecto } from "@/lib/resumen-proyecto";
 import type { Database } from "@/lib/supabase/types";
 
 type Gasto = Database["public"]["Tables"]["gastos"]["Row"];
@@ -15,13 +15,10 @@ import {
   formatFecha,
 } from "@/lib/format";
 import { BTN_SECONDARY, LINK_MUTED } from "@/lib/ui";
+import { ALERTA_ESTILOS, severidadAlerta, type Severidad } from "@/lib/alertas-ui";
 import { DescargarAlertasBoton } from "./alertas-descargar-boton";
 
 const numberFormatter = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 });
-
-function claveMaterial(etapaId: number | null, material: string) {
-  return `${etapaId ?? "sin-etapa"}::${material.trim().toLowerCase()}`;
-}
 
 type IconName = "trending-up" | "clock" | "currency" | "calendar" | "receipt" | "check-square" | "pencil";
 
@@ -44,35 +41,6 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
     </svg>
   );
 }
-
-type Severidad = "atrasada" | "hoy" | "proxima";
-
-const ALERTA_ESTILOS: Record<
-  Severidad,
-  { box: string; titulo: string; label: string; item: string; cantidad: string }
-> = {
-  atrasada: {
-    box: "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950",
-    titulo: "text-red-900 dark:text-red-200",
-    label: "text-red-700 dark:text-red-400",
-    item: "text-red-900 dark:text-red-200",
-    cantidad: "text-red-700 dark:text-red-400",
-  },
-  hoy: {
-    box: "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950",
-    titulo: "text-amber-900 dark:text-amber-200",
-    label: "text-amber-700 dark:text-amber-400",
-    item: "text-amber-900 dark:text-amber-200",
-    cantidad: "text-amber-700 dark:text-amber-400",
-  },
-  proxima: {
-    box: "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900",
-    titulo: "text-zinc-800 dark:text-zinc-100",
-    label: "text-zinc-500 dark:text-zinc-400",
-    item: "text-zinc-700 dark:text-zinc-300",
-    cantidad: "text-zinc-600 dark:text-zinc-400",
-  },
-};
 
 export default async function ProyectoDetallePage({
   params,
@@ -180,7 +148,7 @@ export default async function ProyectoDetallePage({
   // Estima cantidades esperadas por material en base al promedio de todos los proyectos
   // Terminados (regla de 3 por m² o por N° de baños según corresponda). Si todavía no hay
   // ninguno con gastos, las alertas solo listan nombres, sin cantidad.
-  let estimacionPorMaterial = new Map<string, { cantidad: number | null; unidad: string | null }>();
+  let ratiosReferencia: RatioMaterial[] = [];
   if (proyectosTerminados && proyectosTerminados.length > 0) {
     const { data: gastosTerminados } = await supabase
       .from("gastos")
@@ -199,77 +167,17 @@ export default async function ProyectoDetallePage({
     }
     const proyectosConDatos = proyectosTerminados.filter((p) => gastosPorProyecto.has(p.id));
 
-    const ratios = calcularRatiosPromedio(proyectosConDatos, gastosPorProyecto, catalogoMateriales ?? []);
-    const estimaciones = estimar(ratios, proyecto.m2, proyecto.n_banos);
-    estimacionPorMaterial = new Map(
-      estimaciones.map((e) => [e.material.trim().toLowerCase(), { cantidad: e.cantidadEstimada, unidad: e.unidad }])
-    );
+    ratiosReferencia = calcularRatiosPromedio(proyectosConDatos, gastosPorProyecto, catalogoMateriales ?? []);
   }
 
-  const gastadoPorClave = new Set(
-    (gastosMaterialProyecto ?? [])
-      .filter((g): g is typeof g & { material: string } => !!g.material)
-      .map((g) => claveMaterial(g.etapa_id, g.material))
-  );
-
-  const catalogoPorId = new Map((catalogoEtapas ?? []).map((e) => [e.id, e]));
-  const materialesPorEtapa = new Map<
-    number,
-    { material: string; cantidad: number | null; unidad: string | null }[]
-  >();
-  for (const m of catalogoMateriales ?? []) {
-    if (m.etapa_id == null) continue;
-    // Ya se registró un gasto para este material en esta etapa: se asume comprado, no se avisa más.
-    if (gastadoPorClave.has(claveMaterial(m.etapa_id, m.material))) continue;
-    const estimacion = estimacionPorMaterial.get(m.material.trim().toLowerCase());
-    const lista = materialesPorEtapa.get(m.etapa_id) ?? [];
-    lista.push({
-      material: m.material,
-      cantidad: estimacion?.cantidad ?? null,
-      unidad: estimacion?.unidad ?? m.unidad_default,
-    });
-    materialesPorEtapa.set(m.etapa_id, lista);
-  }
-
-  const etapas = (proyectoEtapas ?? [])
-    .map((pe) => ({ ...pe, catalogo: catalogoPorId.get(pe.etapa_id) }))
-    .filter((pe) => pe.catalogo)
-    .sort((a, b) => a.catalogo!.orden - b.catalogo!.orden);
-
-  const total = etapas.length;
-  const terminadas = etapas.filter((e) => e.estado === "terminada").length;
-  const avancePct = total > 0 ? Math.round((terminadas / total) * 100) : 0;
-
-  const hoy = hoyUTC();
-
-  let diasAtrasoMax = 0;
-  for (const e of etapas) {
-    if (e.estado === "terminada" || !e.fecha_fin_plan) continue;
-    const dias = diferenciaDias(hoy, parseFechaUTC(e.fecha_fin_plan));
-    if (dias > diasAtrasoMax) diasAtrasoMax = dias;
-  }
-
-  const estadoGeneralLabel =
-    proyecto.estado !== "En curso"
-      ? proyecto.estado
-      : diasAtrasoMax > 0
-        ? `Atrasado (${diasAtrasoMax} día${diasAtrasoMax === 1 ? "" : "s"})`
-        : "A tiempo";
-
-  const alertas = etapas
-    .filter((e) => (e.estado === "pendiente" || e.estado === "en_curso") && e.fecha_inicio_plan)
-    .map((e) => {
-      const diasHastaInicio = diferenciaDias(parseFechaUTC(e.fecha_inicio_plan!), hoy);
-      return { etapa: e, diasHastaInicio };
-    })
-    .filter(({ etapa, diasHastaInicio }) =>
-      // En curso: se avisa mientras queden materiales de la etapa sin ningún gasto
-      // registrado, sin importar la ventana de lead time (ya se está construyendo).
-      etapa.estado === "en_curso"
-        ? (materialesPorEtapa.get(etapa.etapa_id) ?? []).length > 0
-        : diasHastaInicio <= etapa.catalogo!.lead_time_dias_compra
-    )
-    .sort((a, b) => a.diasHastaInicio - b.diasHastaInicio);
+  const { etapas, total, terminadas, avancePct, estadoGeneralLabel, alertas } = calcularResumenProyecto({
+    proyecto,
+    proyectoEtapas: proyectoEtapas ?? [],
+    catalogoEtapas: catalogoEtapas ?? [],
+    catalogoMateriales: catalogoMateriales ?? [],
+    gastosMaterial: gastosMaterialProyecto ?? [],
+    ratiosReferencia,
+  });
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-10">
@@ -354,11 +262,11 @@ export default async function ProyectoDetallePage({
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Alertas de compra</h2>
           <DescargarAlertasBoton
-            alertas={alertas.map(({ etapa, diasHastaInicio }) => ({
-              etapa: etapa.catalogo!.nombre,
+            alertas={alertas.map(({ etapa, catalogo, diasHastaInicio, materiales }) => ({
+              etapa: catalogo.nombre,
               estado: estadoEtapaLabels[etapa.estado],
               diasHastaInicio,
-              materiales: materialesPorEtapa.get(etapa.etapa_id) ?? [],
+              materiales,
             }))}
             nombreProyecto={proyecto.nombre}
           />
@@ -370,10 +278,8 @@ export default async function ProyectoDetallePage({
         )}
         {alertas.length > 0 && (
           <ul className="grid gap-3">
-            {alertas.map(({ etapa, diasHastaInicio }) => {
-              const materiales = materialesPorEtapa.get(etapa.etapa_id) ?? [];
-              const severidad: Severidad =
-                diasHastaInicio < 0 ? "atrasada" : diasHastaInicio === 0 ? "hoy" : "proxima";
+            {alertas.map(({ etapa, catalogo, diasHastaInicio, materiales }) => {
+              const severidad: Severidad = severidadAlerta(diasHastaInicio);
               const estilo = ALERTA_ESTILOS[severidad];
               return (
                 <li key={etapa.id} className={`rounded-lg border ${estilo.box}`}>
@@ -382,12 +288,12 @@ export default async function ProyectoDetallePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className={`text-sm font-medium ${estilo.titulo}`}>
                           {etapa.estado === "en_curso"
-                            ? `La etapa "${etapa.catalogo!.nombre}" está en curso y todavía tiene materiales sin comprar`
+                            ? `La etapa "${catalogo.nombre}" está en curso y todavía tiene materiales sin comprar`
                             : diasHastaInicio > 0
-                              ? `En ${diasHastaInicio} día${diasHastaInicio === 1 ? "" : "s"} comienza la etapa "${etapa.catalogo!.nombre}"`
+                              ? `En ${diasHastaInicio} día${diasHastaInicio === 1 ? "" : "s"} comienza la etapa "${catalogo.nombre}"`
                               : diasHastaInicio === 0
-                                ? `La etapa "${etapa.catalogo!.nombre}" comienza hoy`
-                                : `La etapa "${etapa.catalogo!.nombre}" debería haber comenzado hace ${Math.abs(diasHastaInicio)} día${Math.abs(diasHastaInicio) === 1 ? "" : "s"}`}
+                                ? `La etapa "${catalogo.nombre}" comienza hoy`
+                                : `La etapa "${catalogo.nombre}" debería haber comenzado hace ${Math.abs(diasHastaInicio)} día${Math.abs(diasHastaInicio) === 1 ? "" : "s"}`}
                         </p>
                         {materiales.length > 0 && (
                           <span className={`shrink-0 whitespace-nowrap text-xs ${estilo.label}`}>

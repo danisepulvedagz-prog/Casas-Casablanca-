@@ -81,6 +81,14 @@ export default async function RootLayout({
                 Proyectos
               </Link>
             )}
+            {esAdmin && (
+              <Link
+                href="/resumen"
+                className="text-sm font-light uppercase tracking-wide text-zinc-700 transition-colors hover:text-brand dark:text-zinc-300"
+              >
+                Resumen semanal
+              </Link>
+            )}
             <Link
               href="/gastos/nuevo"
               className="text-sm font-light uppercase tracking-wide text-zinc-700 transition-colors hover:text-brand dark:text-zinc-300"
