@@ -49,6 +49,37 @@ async function proyectosPostventaEntre(
   return new Set((data ?? []).filter((p) => p.modalidad === "Postventa").map((p) => p.id));
 }
 
+/**
+ * Al registrar la primera compra de Material de una etapa, la pasa sola de
+ * "pendiente" a "en_curso" con fecha_inicio_real = la fecha de esa boleta o
+ * transferencia (no el día en que se carga al sistema, para que quede bien
+ * aunque se suba atrasada). Si la etapa ya estaba en_curso o terminada no se
+ * toca — así una compra posterior no le pisa la fecha a una etapa que ya se
+ * había marcado a mano.
+ */
+async function iniciarEtapasPorPrimeraCompra(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gastos: { proyecto_id: string; etapa_id?: number | null; categoria: CategoriaGasto; fecha: string }[]
+) {
+  const primeraFechaPorEtapa = new Map<string, { proyecto_id: string; etapa_id: number; fecha: string }>();
+  for (const g of gastos) {
+    if (g.categoria !== "Material" || g.etapa_id == null) continue;
+    const key = `${g.proyecto_id}::${g.etapa_id}`;
+    const actual = primeraFechaPorEtapa.get(key);
+    if (!actual || g.fecha < actual.fecha) {
+      primeraFechaPorEtapa.set(key, { proyecto_id: g.proyecto_id, etapa_id: g.etapa_id, fecha: g.fecha });
+    }
+  }
+  for (const { proyecto_id, etapa_id, fecha } of primeraFechaPorEtapa.values()) {
+    await supabase
+      .from("proyecto_etapas")
+      .update({ estado: "en_curso", fecha_inicio_real: fecha })
+      .eq("proyecto_id", proyecto_id)
+      .eq("etapa_id", etapa_id)
+      .eq("estado", "pendiente");
+  }
+}
+
 function parseGastoForm(formData: FormData) {
   const categoria = String(formData.get("categoria") ?? "") as CategoriaGasto;
   const monto_total = Number(formData.get("monto_total"));
@@ -512,6 +543,7 @@ export async function crearFacturaConGastos(
   if (gastosError) {
     return { error: `Se creó la factura pero no se pudieron guardar los ítems: ${gastosError.message}` };
   }
+  await iniciarEtapasPorPrimeraCompra(supabase, gastosAInsertar);
 
   const proyectosAfectados = new Set(gastosAInsertar.map((g) => g.proyecto_id));
   proyectosAfectados.add(proyectoId);
@@ -689,6 +721,7 @@ export async function crearTransferenciaConGasto(
   if (gastosError) {
     return { error: `Se creó la transferencia pero no se pudieron guardar los ítems: ${gastosError.message}` };
   }
+  await iniciarEtapasPorPrimeraCompra(supabase, gastosAInsertar);
 
   const proyectosAfectados = new Set(gastosAInsertar.map((g) => g.proyecto_id));
   proyectosAfectados.add(proyectoId);
@@ -901,6 +934,7 @@ export async function updateFacturaConGastos(
     if (insertError) {
       return { error: `No se pudieron guardar los ítems nuevos: ${insertError.message}` };
     }
+    await iniciarEtapasPorPrimeraCompra(supabase, gastosAInsertar);
   }
 
   for (const item of existentes) {
@@ -1066,6 +1100,7 @@ export async function updateTransferenciaConGastos(
     if (insertError) {
       return { error: `No se pudieron guardar los ítems nuevos: ${insertError.message}` };
     }
+    await iniciarEtapasPorPrimeraCompra(supabase, gastosAInsertar);
   }
 
   for (const item of existentes) {
