@@ -61,12 +61,16 @@ export function GastosTabla({
   const [filtroCategorias, setFiltroCategorias] = useState<string[]>([]);
   const [filtroMateriales, setFiltroMateriales] = useState<string[]>([]);
   const [busquedaDocumento, setBusquedaDocumento] = useState("");
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
 
   const hayFiltrosActivos = !!(
     filtroEtapas.length ||
     filtroCategorias.length ||
     filtroMateriales.length ||
-    busquedaDocumento.trim()
+    busquedaDocumento.trim() ||
+    filtroFechaDesde ||
+    filtroFechaHasta
   );
 
   // La lista de materiales del filtro depende de las etapas/categorías
@@ -106,9 +110,11 @@ export function GastosTabla({
           (filtroEtapas.length === 0 || filtroEtapas.includes(g.etapaNombre)) &&
           (filtroCategorias.length === 0 || filtroCategorias.includes(g.categoria)) &&
           (filtroMateriales.length === 0 || (g.material != null && filtroMateriales.includes(g.material))) &&
-          (!busquedaNormalizada || (g.nDocumento ?? "").toLowerCase().includes(busquedaNormalizada))
+          (!busquedaNormalizada || (g.nDocumento ?? "").toLowerCase().includes(busquedaNormalizada)) &&
+          (!filtroFechaDesde || g.fecha >= filtroFechaDesde) &&
+          (!filtroFechaHasta || g.fecha <= filtroFechaHasta)
       ),
-    [gastos, filtroEtapas, filtroCategorias, filtroMateriales, busquedaNormalizada]
+    [gastos, filtroEtapas, filtroCategorias, filtroMateriales, busquedaNormalizada, filtroFechaDesde, filtroFechaHasta]
   );
 
   const totalFiltrado = useMemo(() => filtrados.reduce((s, g) => s + g.monto_total, 0), [filtrados]);
@@ -183,6 +189,25 @@ export function GastosTabla({
           placeholder="Buscar N° de documento..."
           className={`${selectClass} w-48`}
         />
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={filtroFechaDesde}
+            onChange={(e) => setFiltroFechaDesde(e.target.value)}
+            max={filtroFechaHasta || undefined}
+            aria-label="Desde"
+            className={selectClass}
+          />
+          <span className="text-sm text-zinc-400">–</span>
+          <input
+            type="date"
+            value={filtroFechaHasta}
+            onChange={(e) => setFiltroFechaHasta(e.target.value)}
+            min={filtroFechaDesde || undefined}
+            aria-label="Hasta"
+            className={selectClass}
+          />
+        </div>
         {hayFiltrosActivos && (
           <button
             type="button"
@@ -191,6 +216,8 @@ export function GastosTabla({
               setFiltroCategorias([]);
               setFiltroMateriales([]);
               setBusquedaDocumento("");
+              setFiltroFechaDesde("");
+              setFiltroFechaHasta("");
             }}
             className="text-sm text-zinc-500 hover:text-brand hover:underline"
           >
