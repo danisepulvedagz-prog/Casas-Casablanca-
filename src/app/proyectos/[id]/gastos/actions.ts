@@ -31,13 +31,15 @@ function esOtrosSinEtapa(material: string | null | undefined, etapaId: number | 
 }
 const ERROR_OTROS_SIN_ETAPA = 'Falta elegir la etapa de un material marcado como "Otros".';
 
+const MODALIDADES_SIN_ETAPAS = new Set(["Postventa", "Bodega"]);
+
 /**
- * Postventa no tiene ninguna etapa disponible (no tiene cronograma) — para
- * esos proyectos "Otros" sin etapa es válido y no se bloquea (ver el mismo
- * criterio en necesitaElegirEtapa de lib/materiales.ts, del lado cliente).
- * Devuelve el subconjunto de proyectoIds que son Postventa.
+ * Postventa y Bodega no tienen ninguna etapa disponible (no tienen
+ * cronograma) — para esos proyectos "Otros" sin etapa es válido y no se
+ * bloquea (ver el mismo criterio en necesitaElegirEtapa de lib/materiales.ts,
+ * del lado cliente). Devuelve el subconjunto de proyectoIds sin etapas.
  */
-async function proyectosPostventaEntre(
+async function proyectosSinEtapasEntre(
   supabase: Awaited<ReturnType<typeof createClient>>,
   proyectoIds: Set<string>
 ): Promise<Set<string>> {
@@ -46,7 +48,7 @@ async function proyectosPostventaEntre(
     .from("proyectos")
     .select("id, modalidad")
     .in("id", Array.from(proyectoIds));
-  return new Set((data ?? []).filter((p) => p.modalidad === "Postventa").map((p) => p.id));
+  return new Set((data ?? []).filter((p) => MODALIDADES_SIN_ETAPAS.has(p.modalidad)).map((p) => p.id));
 }
 
 /**
@@ -57,7 +59,7 @@ async function proyectosPostventaEntre(
  * toca — así una compra posterior no le pisa la fecha a una etapa que ya se
  * había marcado a mano.
  */
-async function iniciarEtapasPorPrimeraCompra(
+export async function iniciarEtapasPorPrimeraCompra(
   supabase: Awaited<ReturnType<typeof createClient>>,
   gastos: { proyecto_id: string; etapa_id?: number | null; categoria: CategoriaGasto; fecha: string }[]
 ) {
@@ -479,7 +481,7 @@ export async function crearFacturaConGastos(
   }
 
   const supabase = await createClient();
-  const postventaIds = await proyectosPostventaEntre(
+  const sinEtapasIds = await proyectosSinEtapasEntre(
     supabase,
     new Set(items.map((it) => it.proyecto_id ?? proyectoId).concat(proyectoId))
   );
@@ -490,7 +492,7 @@ export async function crearFacturaConGastos(
     if (!Number.isFinite(item.monto_total) || item.monto_total <= 0) {
       return { error: `El monto de "${item.material}" debe ser un número mayor a 0.` };
     }
-    if (!postventaIds.has(item.proyecto_id ?? proyectoId) && esOtrosSinEtapa(item.material, item.etapa_id)) {
+    if (!sinEtapasIds.has(item.proyecto_id ?? proyectoId) && esOtrosSinEtapa(item.material, item.etapa_id)) {
       return { error: ERROR_OTROS_SIN_ETAPA };
     }
   }
@@ -609,7 +611,7 @@ export async function crearTransferenciaConGasto(
     if (!Array.isArray(items) || items.length === 0) {
       return { error: "Agrega al menos un material antes de guardar." };
     }
-    const postventaIds = await proyectosPostventaEntre(
+    const sinEtapasIds = await proyectosSinEtapasEntre(
       supabase,
       new Set(items.map((it) => it.proyecto_id ?? proyectoId).concat(proyectoId))
     );
@@ -620,7 +622,7 @@ export async function crearTransferenciaConGasto(
       if (item.monto_total != null && (!Number.isFinite(item.monto_total) || item.monto_total < 0)) {
         return { error: `El monto de "${item.material}" no es válido.` };
       }
-      if (!postventaIds.has(item.proyecto_id ?? proyectoId) && esOtrosSinEtapa(item.material, item.etapa_id)) {
+      if (!sinEtapasIds.has(item.proyecto_id ?? proyectoId) && esOtrosSinEtapa(item.material, item.etapa_id)) {
         return { error: ERROR_OTROS_SIN_ETAPA };
       }
     }
@@ -857,7 +859,7 @@ export async function updateFacturaConGastos(
   }
 
   const supabase = await createClient();
-  const postventaIds = await proyectosPostventaEntre(
+  const sinEtapasIds = await proyectosSinEtapasEntre(
     supabase,
     new Set(items.map((it) => it.proyecto_id).concat(proyectoId))
   );
@@ -868,7 +870,7 @@ export async function updateFacturaConGastos(
     if (!Number.isFinite(item.monto_total) || item.monto_total <= 0) {
       return { error: `El monto de "${item.material}" debe ser un número mayor a 0.` };
     }
-    if (!postventaIds.has(item.proyecto_id) && esOtrosSinEtapa(item.material, item.etapa_id)) {
+    if (!sinEtapasIds.has(item.proyecto_id) && esOtrosSinEtapa(item.material, item.etapa_id)) {
       return { error: ERROR_OTROS_SIN_ETAPA };
     }
   }
@@ -1019,7 +1021,7 @@ export async function updateTransferenciaConGastos(
   }
 
   const supabase = await createClient();
-  const postventaIds = await proyectosPostventaEntre(
+  const sinEtapasIds = await proyectosSinEtapasEntre(
     supabase,
     new Set(items.map((it) => it.proyecto_id).concat(proyectoId))
   );
@@ -1033,7 +1035,7 @@ export async function updateTransferenciaConGastos(
     }
     if (
       item.categoria === "Material" &&
-      !postventaIds.has(item.proyecto_id) &&
+      !sinEtapasIds.has(item.proyecto_id) &&
       esOtrosSinEtapa(item.material, item.etapa_id)
     ) {
       return { error: ERROR_OTROS_SIN_ETAPA };

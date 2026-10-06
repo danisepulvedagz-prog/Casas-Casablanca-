@@ -7,7 +7,9 @@ import { BTN_PRIMARY, LINK_MUTED } from "@/lib/ui";
 export default async function ProyectosPage() {
   const supabase = await createClient();
   const [{ data: proyectos, error }, { data: todasEtapas }] = await Promise.all([
-    supabase.from("proyectos").select("*").order("created_at", { ascending: false }),
+    // Bodega es un proyecto especial (sin etapas, sin cronograma) con su
+    // propia pantalla en /bodega — no se mezcla con las obras acá.
+    supabase.from("proyectos").select("*").neq("modalidad", "Bodega").order("created_at", { ascending: false }),
     supabase.from("proyecto_etapas").select("proyecto_id, estado"),
   ]);
 

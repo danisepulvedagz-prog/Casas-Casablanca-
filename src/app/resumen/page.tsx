@@ -22,7 +22,7 @@ export default async function ResumenSemanalPage() {
       .eq("es_proyecto_referencia_m2", true),
   ]);
 
-  const activos = (proyectos ?? []).filter((p) => p.modalidad !== "Postventa");
+  const activos = (proyectos ?? []).filter((p) => p.modalidad !== "Postventa" && p.modalidad !== "Bodega");
   const postventasActivas = (proyectos ?? []).filter((p) => p.modalidad === "Postventa");
 
   if (activos.length === 0 && postventasActivas.length === 0) {

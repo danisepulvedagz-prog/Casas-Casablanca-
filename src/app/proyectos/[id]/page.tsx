@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { modalidadesIncluidas } from "@/lib/etapas";
 import { calcularRatiosPromedio, type RatioMaterial } from "@/lib/calculadora-m2";
@@ -52,6 +52,10 @@ export default async function ProyectoDetallePage({
 
   const { data: proyecto } = await supabase.from("proyectos").select("*").eq("id", id).single();
   if (!proyecto) notFound();
+
+  // Bodega tiene su propia pantalla dedicada (stock + despachos), no la ficha
+  // de proyecto normal.
+  if (proyecto.modalidad === "Bodega") redirect("/bodega");
 
   // Postventa no tiene etapas ni cronograma (nace de una casa ya Terminada,
   // solo para llevar sus gastos posteriores a la entrega) — vista simplificada,

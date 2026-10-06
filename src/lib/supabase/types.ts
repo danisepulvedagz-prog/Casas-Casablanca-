@@ -2,7 +2,7 @@
 // Once the Supabase project exists, regenerate with:
 //   pnpm dlx supabase gen types typescript --project-id <project-id> > src/lib/supabase/types.ts
 
-export type Modalidad = "Obra Gruesa Habitable" | "Llave en Mano" | "Postventa";
+export type Modalidad = "Obra Gruesa Habitable" | "Llave en Mano" | "Postventa" | "Bodega";
 export type EstadoProyecto = "En curso" | "Terminado" | "Pausado";
 export type EstadoEtapa = "pendiente" | "en_curso" | "terminada";
 export type TipoTecho = "Mediterráneo" | "Inclinado";
@@ -304,6 +304,48 @@ export interface Database {
           fecha?: string;
           foto_url?: string | null;
           monto_total?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      bodega_despachos: {
+        Row: {
+          id: string;
+          material: string;
+          cantidad: number;
+          unidad: string | null;
+          costo_unitario: number;
+          proyecto_destino_id: string;
+          gasto_generado_id: string;
+          fecha: string;
+          registrado_por: string | null;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          material: string;
+          cantidad: number;
+          unidad?: string | null;
+          costo_unitario: number;
+          proyecto_destino_id: string;
+          gasto_generado_id: string;
+          fecha: string;
+          registrado_por?: string | null;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          material?: string;
+          cantidad?: number;
+          unidad?: string | null;
+          costo_unitario?: number;
+          proyecto_destino_id?: string;
+          gasto_generado_id?: string;
+          fecha?: string;
+          registrado_por?: string | null;
+          notas?: string | null;
           created_at?: string;
         };
         Relationships: [];
