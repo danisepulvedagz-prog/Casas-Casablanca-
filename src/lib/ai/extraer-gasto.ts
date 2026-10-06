@@ -130,8 +130,16 @@ Para cada ítem que identifiques en el documento:
 - Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
   (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
   redacción del documento en ese caso.
-- Solo si el producto no se parece a nada del catálogo, usa el nombre tal como aparece en el documento
-  (limpio, sin códigos internos ni referencias entre paréntesis) y etapa_id null.
+- Si el producto claramente pertenece a una etapa del catálogo pero no puedes decidir con confianza CUÁL de
+  dos o más materiales de esa etapa es (ej. el catálogo tiene "Panel SIP 114mm" y "Panel SIP 90mm", y el
+  documento solo dice "Panel SIP" o trae un código/SKU que no indica el espesor) — NO elijas uno al azar ni
+  mezcles el nombre del documento con la etapa del catálogo. Trátalo igual que si no hubiera coincidencia:
+  usa el nombre tal como aparece en el documento y etapa_id null, aunque sepas en general a qué etapa
+  pertenece. etapa_id null es justamente la señal de "revisar a mano" — dejar la etapa puesta con un nombre
+  que no es ninguno de los del catálogo hace que esa compra no se reconozca como hecha y quede como si
+  todavía faltara comprar.
+- Solo si el producto no se parece a nada del catálogo, o cae en el caso de arriba, usa el nombre tal como
+  aparece en el documento (limpio, sin códigos internos ni referencias entre paréntesis) y etapa_id null.
 
 Para el monto de cada línea (el "monto_total" de cada ítem): usa el número que el documento ya trae impreso
 en la columna del subtotal/total de esa línea (a veces se llama "Total", "Subtotal" o similar) — NO lo calcules
@@ -158,7 +166,9 @@ Devuelve SOLO un JSON válido (sin markdown, sin texto extra) con esta forma exa
       "unidad": string o null (la del catálogo si hay coincidencia; si no, ej: "un", "saco", "m2", "kg", "rollo"),
       "costo_unitario": number o null (precio unitario en pesos chilenos),
       "monto_total": number o null (el subtotal de esta línea TAL COMO APARECE IMPRESO en el documento, no calculado),
-      "etapa_id": number o null (la etapa del catálogo si hubo coincidencia; null si no la hay)
+      "etapa_id": number o null (la etapa del catálogo SOLO si "material" quedó con el nombre exacto de un
+        material de esa etapa en el catálogo; si "material" quedó con el nombre del documento, etapa_id
+        siempre va null, nunca mezcles una etapa del catálogo con un material que no es de ese catálogo)
     }
   ]
 }

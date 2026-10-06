@@ -359,6 +359,31 @@ export async function deleteGasto(proyectoId: string, gastoId: string) {
 export type ExtraccionFactura = { data: FacturaExtraida } | { error: string };
 
 /**
+ * Red de seguridad por si la IA no siguió la instrucción del prompt: nunca
+ * debería devolver una etapa puesta junto a un material que no es ninguno
+ * de los del catálogo de esa etapa (eso deja la compra "invisible" para las
+ * alertas — no se reconoce como ya comprada). Si pasa, se fuerza etapa_id a
+ * null acá, determinísticamente, para que quede igual que un ítem "Otros"
+ * sin etapa: marcado en rojo para que alguien lo revise a mano.
+ */
+function corregirEtapasSinCoincidencia(
+  data: FacturaExtraida,
+  catalogoMateriales: { material: string; etapaId: number }[]
+): FacturaExtraida {
+  const clavesCatalogo = new Set(
+    catalogoMateriales.map((m) => `${m.etapaId}::${m.material.trim().toLowerCase()}`)
+  );
+  return {
+    ...data,
+    items: data.items.map((item) => {
+      if (item.etapa_id == null || !item.material) return item;
+      const clave = `${item.etapa_id}::${item.material.trim().toLowerCase()}`;
+      return clavesCatalogo.has(clave) ? item : { ...item, etapa_id: null };
+    }),
+  };
+}
+
+/**
  * Lee una foto de factura/boleta con IA: identifica cada producto como un
  * ítem separado y sugiere a qué etapa pertenece cada uno (comparando contra
  * el catálogo real de etapas del proyecto). El usuario siempre revisa/edita
@@ -413,7 +438,7 @@ export async function extraerFactura(formData: FormData): Promise<ExtraccionFact
       .map((m) => ({ material: m.material, unidad: m.unidad_default, etapaId: m.etapa_id }));
 
     const data = await extraerItemsFactura(imagenBase64, mimeType, etapas, catalogoMateriales);
-    return { data };
+    return { data: corregirEtapasSinCoincidencia(data, catalogoMateriales) };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "No se pudo leer la imagen." };
   }
