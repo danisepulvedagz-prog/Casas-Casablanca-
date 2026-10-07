@@ -414,19 +414,33 @@ export async function extraerFactura(formData: FormData): Promise<ExtraccionFact
       .single();
     if (!proyecto) return { error: "Proyecto no encontrado." };
 
+    // Bodega no tiene proyecto_etapas (no tiene cronograma, igual que
+    // Postventa) — pero a diferencia de Postventa, sí se compran materiales
+    // reales de obra ahí, solo que todavía sin decidir a qué proyecto/etapa
+    // van (eso se elige recién al despachar). Si se la tratara como un
+    // proyecto más, el catálogo quedaría vacío y la IA no reconocería nada
+    // — por eso acá se le muestra el catálogo completo (todas las etapas de
+    // cualquier modalidad) solo para reconocer el NOMBRE del material; la
+    // etapa se descarta abajo de todas formas.
+    const esBodega = proyecto.modalidad === "Bodega";
+
     const [{ data: catalogoEtapas }, { data: proyectoEtapas }] = await Promise.all([
-      supabase
-        .from("catalogo_etapas")
-        .select("id, nombre")
-        .in("modalidad", modalidadesIncluidas(proyecto.modalidad))
-        .order("orden"),
+      esBodega
+        ? supabase.from("catalogo_etapas").select("id, nombre").order("orden")
+        : supabase
+            .from("catalogo_etapas")
+            .select("id, nombre")
+            .in("modalidad", modalidadesIncluidas(proyecto.modalidad))
+            .order("orden"),
       supabase.from("proyecto_etapas").select("etapa_id").eq("proyecto_id", proyectoId),
     ]);
 
     // Solo las etapas que el proyecto realmente tiene (ej. si no tiene deck,
-    // esa etapa no debe sugerirse).
+    // esa etapa no debe sugerirse) — Bodega usa el catálogo completo tal cual.
     const etapaIdsProyecto = new Set((proyectoEtapas ?? []).map((pe) => pe.etapa_id));
-    const etapas = (catalogoEtapas ?? []).filter((e) => etapaIdsProyecto.has(e.id));
+    const etapas = esBodega
+      ? (catalogoEtapas ?? [])
+      : (catalogoEtapas ?? []).filter((e) => etapaIdsProyecto.has(e.id));
 
     const { data: catalogoMaterialesRaw } = await supabase
       .from("catalogo_materiales")
@@ -438,7 +452,13 @@ export async function extraerFactura(formData: FormData): Promise<ExtraccionFact
       .map((m) => ({ material: m.material, unidad: m.unidad_default, etapaId: m.etapa_id }));
 
     const data = await extraerItemsFactura(imagenBase64, mimeType, etapas, catalogoMateriales);
-    return { data: corregirEtapasSinCoincidencia(data, catalogoMateriales) };
+    const dataCorregida = corregirEtapasSinCoincidencia(data, catalogoMateriales);
+    // En Bodega la etapa se elige al despachar, nunca al comprar.
+    return {
+      data: esBodega
+        ? { ...dataCorregida, items: dataCorregida.items.map((it) => ({ ...it, etapa_id: null })) }
+        : dataCorregida,
+    };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "No se pudo leer la imagen." };
   }
