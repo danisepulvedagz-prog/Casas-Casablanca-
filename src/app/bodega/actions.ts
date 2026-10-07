@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { iniciarEtapasPorPrimeraCompra } from "@/app/proyectos/[id]/gastos/actions";
 import { calcularStockBodega, tomarDeLotesFIFO } from "@/lib/bodega";
 import { sugerirMaterialCatalogo, type SugerenciaMaterial } from "@/lib/ai/extraer-gasto";
+import { esOtros } from "@/lib/materiales";
 
 export interface ActionState {
   error?: string;
@@ -71,6 +72,13 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
 
   const tomas = tomarDeLotesFIFO(stockMaterial!.lotes, cantidad);
 
+  // Si quedó como "Otros" (la IA no encontró con qué calzarlo, o se dejó
+  // así a mano), se deja el nombre tal como estaba en Bodega en las notas —
+  // mismo criterio que cualquier "Otros": sin eso no hay forma de saber
+  // después a qué corresponde.
+  const notaNombreOriginal = esOtros(materialDestino) ? ` Nombre en la boleta: "${materialOrigen}".` : "";
+  const notasFinal = "Despacho desde Bodega." + notaNombreOriginal + (notas ? ` ${notas}` : "");
+
   for (const { lote, cantidad: cantidadLote } of tomas) {
     const montoLote = cantidadLote * lote.costoUnitario;
 
@@ -89,7 +97,7 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
         monto_total: montoLote,
         fecha,
         registrado_por: registradoPor,
-        notas: "Despacho desde Bodega." + (notas ? ` ${notas}` : ""),
+        notas: notasFinal,
       })
       .select("id")
       .single();
