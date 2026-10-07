@@ -18,12 +18,17 @@ export async function obtenerBodegaId(supabase: Awaited<ReturnType<typeof create
 
 /**
  * Despachar = mover material de Bodega a un proyecto real. Consume el stock
- * lote por lote (FIFO, de la compra más antigua a la más nueva) y por cada
- * lote que toca crea un gasto normal en el proyecto destino enlazado a la
- * MISMA factura o transferencia de esa compra — así el respaldo real (foto,
- * proveedor) queda disponible en el proyecto destino, igual que si esa
- * boleta se hubiera repartido entre proyectos desde el principio. Si la
- * cantidad pedida cruza más de un lote, se crea un gasto por cada uno.
+ * lote por lote (FIFO, de la compra más antigua a la más nueva); por cada
+ * lote que toca:
+ *  - resta la cantidad despachada de ESE gasto de compra en Bodega (lo borra
+ *    si queda en 0) — nunca se deja la compra intacta, porque dejaría el
+ *    monto duplicado bajo la misma factura (una vez en Bodega, otra en el
+ *    proyecto destino) en vez de repartido.
+ *  - crea un gasto normal en el proyecto destino enlazado a la MISMA factura
+ *    o transferencia de esa compra, así el respaldo real (foto, proveedor)
+ *    queda disponible ahí, igual que si esa boleta se hubiera repartido
+ *    entre proyectos desde el principio.
+ * Si la cantidad pedida cruza más de un lote, se repite esto por cada uno.
  */
 export async function despacharBodega(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   // material_origen identifica qué lote de Bodega se consume (el nombre tal
@@ -52,11 +57,12 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
 
   // Revalida el stock (y los lotes) justo antes de guardar, por si cambió
   // entremedio — ej. otra persona despachó lo mismo recién.
-  const [{ data: gastosBodega }, { data: despachosPrevios }] = await Promise.all([
-    supabase.from("gastos").select("*").eq("proyecto_id", bodegaId).eq("categoria", "Material"),
-    supabase.from("bodega_despachos").select("*"),
-  ]);
-  const stock = calcularStockBodega(gastosBodega ?? [], despachosPrevios ?? []);
+  const { data: gastosBodega } = await supabase
+    .from("gastos")
+    .select("*")
+    .eq("proyecto_id", bodegaId)
+    .eq("categoria", "Material");
+  const stock = calcularStockBodega(gastosBodega ?? []);
   const stockMaterial = stock.find((s) => s.material.trim().toLowerCase() === materialOrigen.toLowerCase());
   const disponible = stockMaterial?.cantidadDisponible ?? 0;
   if (cantidad > disponible) {
@@ -94,6 +100,10 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
       };
     }
 
+    // El registro de auditoría se guarda ANTES de tocar la compra de origen
+    // (todavía existe, así que la referencia es válida) — después, si la
+    // compra se agota y se borra, esta fila queda con gasto_origen_id en
+    // null automáticamente (el resto de sus datos ya quedan copiados acá).
     const { error: despachoError } = await supabase.from("bodega_despachos").insert({
       material: materialOrigen,
       cantidad: cantidadLote,
@@ -111,6 +121,29 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
       return {
         error: `El gasto se creó en el proyecto pero no se pudo dejar el registro del despacho: ${despachoError.message}`,
       };
+    }
+
+    const cantidadRestanteLote = lote.cantidadRestante - cantidadLote;
+    if (cantidadRestanteLote > 0) {
+      const { error: reduceError } = await supabase
+        .from("gastos")
+        .update({ cantidad: cantidadRestanteLote, monto_total: cantidadRestanteLote * lote.costoUnitario })
+        .eq("id", lote.gastoId);
+      if (reduceError) {
+        return {
+          error: `El gasto se creó en el proyecto pero no se pudo descontar de la compra en Bodega: ${reduceError.message}`,
+        };
+      }
+    } else {
+      // Se despachó todo lo que quedaba de esa compra — no tiene sentido
+      // dejar una fila en $0 en Bodega (además rompería la validación de
+      // "monto mayor a 0" al editar esa factura más adelante).
+      const { error: deleteError } = await supabase.from("gastos").delete().eq("id", lote.gastoId);
+      if (deleteError) {
+        return {
+          error: `El gasto se creó en el proyecto pero no se pudo cerrar la compra en Bodega: ${deleteError.message}`,
+        };
+      }
     }
 
     await iniciarEtapasPorPrimeraCompra(supabase, [

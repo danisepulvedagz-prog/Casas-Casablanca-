@@ -38,7 +38,7 @@ export default async function BodegaPage({
     supabase.from("proyecto_etapas").select("proyecto_id, etapa_id"),
   ]);
 
-  const stock = calcularStockBodega(gastosBodega ?? [], despachosRaw ?? []).filter((s) => s.cantidadDisponible > 0);
+  const stock = calcularStockBodega(gastosBodega ?? []);
 
   const nombrePorProyecto = new Map((proyectos ?? []).map((p) => [p.id, p.nombre]));
   const despachos: DespachoRow[] = (despachosRaw ?? []).map((d) => ({

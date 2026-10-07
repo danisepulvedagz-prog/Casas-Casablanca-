@@ -1,7 +1,6 @@
 import type { Database } from "@/lib/supabase/types";
 
 type Gasto = Database["public"]["Tables"]["gastos"]["Row"];
-type BodegaDespacho = Database["public"]["Tables"]["bodega_despachos"]["Row"];
 
 export interface LoteBodega {
   gastoId: string;
@@ -9,7 +8,6 @@ export interface LoteBodega {
   transferenciaId: string | null;
   fecha: string;
   costoUnitario: number;
-  cantidadOriginal: number;
   cantidadRestante: number;
 }
 
@@ -18,23 +16,19 @@ export interface StockMaterial {
   unidad: string | null;
   cantidadDisponible: number;
   costoPromedio: number;
-  // Lotes con stock > 0, del más antiguo al más nuevo — el despacho los
-  // consume en este orden (FIFO), para que el respaldo (factura/transferencia)
-  // que llega al proyecto destino sea siempre el de la compra real correspondiente.
+  // Lotes del más antiguo al más nuevo — el despacho los consume en este
+  // orden (FIFO). cantidadRestante es la cantidad ACTUAL del gasto de compra:
+  // cada despacho resta directo de esa fila (o la borra si llega a 0), así
+  // que acá no hace falta cruzar contra bodega_despachos para saber cuánto
+  // queda — el número siempre está al día y la suma de ítems de una factura
+  // nunca se desincroniza de su monto total.
   lotes: LoteBodega[];
 }
 
-/**
- * Stock de Bodega = lo comprado (gastos de Material del proyecto Bodega, con
- * cantidad) menos lo ya despachado de cada compra puntual — se rastrea lote
- * por lote (cada "lote" es un gasto de compra real, con su propia factura o
- * transferencia) en vez de un solo número agregado, para poder mantener el
- * respaldo real cuando el material se despacha a un proyecto.
- */
-export function calcularStockBodega(gastosBodega: Gasto[], despachos: BodegaDespacho[]): StockMaterial[] {
+export function calcularStockBodega(gastosBodega: Gasto[]): StockMaterial[] {
   const porMaterial = new Map<string, { nombre: string; unidad: string | null; lotes: LoteBodega[] }>();
   for (const g of gastosBodega) {
-    if (g.categoria !== "Material" || !g.material || g.cantidad == null) continue;
+    if (g.categoria !== "Material" || !g.material || g.cantidad == null || g.cantidad <= 0) continue;
     const key = g.material.trim().toLowerCase();
     const acc = porMaterial.get(key) ?? { nombre: g.material.trim(), unidad: g.unidad, lotes: [] };
     if (!acc.unidad && g.unidad) acc.unidad = g.unidad;
@@ -44,26 +38,14 @@ export function calcularStockBodega(gastosBodega: Gasto[], despachos: BodegaDesp
       transferenciaId: g.transferencia_id,
       fecha: g.fecha,
       costoUnitario: g.costo_unitario ?? (g.cantidad > 0 ? g.monto_total / g.cantidad : 0),
-      cantidadOriginal: g.cantidad,
       cantidadRestante: g.cantidad,
     });
     porMaterial.set(key, acc);
   }
 
-  const consumidoPorLote = new Map<string, number>();
-  for (const d of despachos) {
-    consumidoPorLote.set(d.gasto_origen_id, (consumidoPorLote.get(d.gasto_origen_id) ?? 0) + d.cantidad);
-  }
-
   return Array.from(porMaterial.values())
     .map((acc) => {
-      const lotes = acc.lotes
-        .map((lote) => ({
-          ...lote,
-          cantidadRestante: lote.cantidadOriginal - (consumidoPorLote.get(lote.gastoId) ?? 0),
-        }))
-        .filter((lote) => lote.cantidadRestante > 0)
-        .sort((a, b) => a.fecha.localeCompare(b.fecha));
+      const lotes = [...acc.lotes].sort((a, b) => a.fecha.localeCompare(b.fecha));
       const cantidadDisponible = lotes.reduce((s, l) => s + l.cantidadRestante, 0);
       const montoDisponible = lotes.reduce((s, l) => s + l.cantidadRestante * l.costoUnitario, 0);
       return {
@@ -74,7 +56,6 @@ export function calcularStockBodega(gastosBodega: Gasto[], despachos: BodegaDesp
         lotes,
       };
     })
-    .filter((m) => m.cantidadDisponible > 0)
     .sort((a, b) => a.material.localeCompare(b.material, "es"));
 }
 
