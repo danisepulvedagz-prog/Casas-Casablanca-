@@ -37,7 +37,7 @@ export interface DatosTransferenciaExtraidos {
   fecha: string | null; // YYYY-MM-DD
 }
 
-interface CatalogoMaterialPrompt {
+export interface CatalogoMaterialPrompt {
   material: string;
   etapaId: number;
   unidad: string;
@@ -249,29 +249,31 @@ function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function llamarClaude(
-  prompt: string,
-  archivoBase64: string,
-  mimeType: string,
-  maxTokens: number
-): Promise<string> {
+interface ArchivoAdjunto {
+  base64: string;
+  mimeType: string;
+}
+
+async function llamarClaude(prompt: string, archivo: ArchivoAdjunto | null, maxTokens: number): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("Falta configurar ANTHROPIC_API_KEY en el servidor.");
   }
 
   // Claude lee PDF directo (facturas electrónicas suelen venir así, no solo
-  // como foto); cualquier otra cosa se manda como imagen.
-  const bloqueArchivo =
-    mimeType === "application/pdf"
+  // como foto); cualquier otra cosa se manda como imagen. Sin archivo (ej.
+  // para comparar solo texto contra el catálogo) se manda únicamente el prompt.
+  const bloqueArchivo = archivo
+    ? archivo.mimeType === "application/pdf"
       ? ({
           type: "document",
-          source: { type: "base64", media_type: "application/pdf", data: archivoBase64 },
+          source: { type: "base64", media_type: "application/pdf", data: archivo.base64 },
         } as const)
       : ({
           type: "image",
-          source: { type: "base64", media_type: normalizarMediaType(mimeType), data: archivoBase64 },
-        } as const);
+          source: { type: "base64", media_type: normalizarMediaType(archivo.mimeType), data: archivo.base64 },
+        } as const)
+    : null;
 
   const client = new Anthropic({ apiKey });
 
@@ -283,7 +285,7 @@ async function llamarClaude(
         messages: [
           {
             role: "user",
-            content: [bloqueArchivo, { type: "text", text: prompt }],
+            content: bloqueArchivo ? [bloqueArchivo, { type: "text", text: prompt }] : prompt,
           },
         ],
       });
@@ -331,7 +333,7 @@ export async function extraerItemsFactura(
   // con una línea por cada tipo de codo/tapa/tornillo) — el stop_reason
   // venía "max_tokens" y a veces cortaba justo antes de terminar el bloque
   // de texto, dejando la respuesta vacía en vez de un JSON truncado.
-  const texto = await llamarClaude(prompt, imagenBase64, mimeType, 8192);
+  const texto = await llamarClaude(prompt, { base64: imagenBase64, mimeType }, 8192);
   let parsed: unknown;
   try {
     parsed = JSON.parse(limpiarRespuestaJSON(texto));
@@ -354,10 +356,50 @@ export async function extraerDatosTransferencia(
   imagenBase64: string,
   mimeType: string
 ): Promise<DatosTransferenciaExtraidos> {
-  const texto = await llamarClaude(PROMPT_TRANSFERENCIA, imagenBase64, mimeType, 1024);
+  const texto = await llamarClaude(PROMPT_TRANSFERENCIA, { base64: imagenBase64, mimeType }, 1024);
   try {
     return JSON.parse(limpiarRespuestaJSON(texto));
   } catch {
     throw new Error("No se pudo interpretar la respuesta de la IA. Intenta con otra foto más nítida.");
+  }
+}
+
+export interface SugerenciaMaterial {
+  material: string;
+  etapaId: number;
+}
+
+/**
+ * Para cuando un material de Bodega (ej. "Esmalte Semibrillo Gris Grafito",
+ * escrito así porque no calzó con el catálogo al comprarlo) se está por
+ * despachar a un proyecto: compara el nombre contra el catálogo completo,
+ * igual que al leer una boleta, pero solo con texto (sin foto) — para
+ * sugerir a qué material/etapa real del catálogo corresponde, por si
+ * conviene dejarlo con ese nombre en vez del original.
+ */
+export async function sugerirMaterialCatalogo(
+  nombreProducto: string,
+  catalogoMateriales: CatalogoMaterialPrompt[]
+): Promise<SugerenciaMaterial | null> {
+  const listaCatalogo = catalogoMateriales.map((m) => `"${m.material}" -> etapa ${m.etapaId}`).join("\n");
+  const prompt = `Eres un asistente que identifica a qué material de un catálogo de construcción corresponde el nombre de un producto.
+
+Catálogo (nombre -> etapa):
+${listaCatalogo}
+
+Producto a identificar: "${nombreProducto}"
+
+Si el producto corresponde claramente a UNO de los materiales del catálogo de arriba (aunque el nombre no sea idéntico — puede tener marca, color, tamaño de envase, código, etc. de más que el catálogo no tiene), responde con el nombre EXACTO de ese material del catálogo. Si no corresponde a ninguno con confianza, o es ambiguo entre dos o más, responde con material null.
+
+Devuelve SOLO un JSON válido (sin markdown, sin texto extra) con esta forma exacta:
+{"material": string o null, "etapa_id": number o null}`;
+
+  const texto = await llamarClaude(prompt, null, 200);
+  try {
+    const parsed = JSON.parse(limpiarRespuestaJSON(texto)) as { material?: string | null; etapa_id?: number | null };
+    if (!parsed.material || parsed.etapa_id == null) return null;
+    return { material: parsed.material, etapaId: parsed.etapa_id };
+  } catch {
+    return null;
   }
 }

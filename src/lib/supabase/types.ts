@@ -317,6 +317,7 @@ export interface Database {
           costo_unitario: number;
           proyecto_destino_id: string;
           gasto_generado_id: string;
+          gasto_origen_id: string;
           fecha: string;
           registrado_por: string | null;
           notas: string | null;
@@ -330,6 +331,7 @@ export interface Database {
           costo_unitario: number;
           proyecto_destino_id: string;
           gasto_generado_id: string;
+          gasto_origen_id: string;
           fecha: string;
           registrado_por?: string | null;
           notas?: string | null;
@@ -343,6 +345,7 @@ export interface Database {
           costo_unitario?: number;
           proyecto_destino_id?: string;
           gasto_generado_id?: string;
+          gasto_origen_id?: string;
           fecha?: string;
           registrado_por?: string | null;
           notas?: string | null;
