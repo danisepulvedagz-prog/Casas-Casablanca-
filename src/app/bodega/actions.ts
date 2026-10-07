@@ -26,7 +26,12 @@ export async function obtenerBodegaId(supabase: Awaited<ReturnType<typeof create
  * cantidad pedida cruza más de un lote, se crea un gasto por cada uno.
  */
 export async function despacharBodega(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const material = String(formData.get("material") ?? "").trim();
+  // material_origen identifica qué lote de Bodega se consume (el nombre tal
+  // como se compró); material_destino es con el nombre que queda el gasto en
+  // el proyecto destino — puede ser el mismo, o uno que la IA hizo calzar con
+  // el catálogo (o "Otros" si no encontró con qué).
+  const materialOrigen = String(formData.get("material_origen") ?? "").trim();
+  const materialDestino = String(formData.get("material_destino") ?? "").trim() || materialOrigen;
   const cantidad = Number(formData.get("cantidad") ?? "");
   const unidad = String(formData.get("unidad") ?? "").trim() || null;
   const proyectoDestinoId = String(formData.get("proyecto_destino_id") ?? "");
@@ -36,7 +41,7 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
   const notas = String(formData.get("notas") ?? "").trim() || null;
   const registradoPor = String(formData.get("registrado_por") ?? "").trim() || null;
 
-  if (!material) return { error: "Falta el material." };
+  if (!materialOrigen) return { error: "Falta el material." };
   if (!Number.isFinite(cantidad) || cantidad <= 0) return { error: "La cantidad debe ser mayor a 0." };
   if (!proyectoDestinoId) return { error: "Elige el proyecto destino." };
   if (!fecha) return { error: "La fecha es obligatoria." };
@@ -52,10 +57,10 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
     supabase.from("bodega_despachos").select("*"),
   ]);
   const stock = calcularStockBodega(gastosBodega ?? [], despachosPrevios ?? []);
-  const stockMaterial = stock.find((s) => s.material.trim().toLowerCase() === material.toLowerCase());
+  const stockMaterial = stock.find((s) => s.material.trim().toLowerCase() === materialOrigen.toLowerCase());
   const disponible = stockMaterial?.cantidadDisponible ?? 0;
   if (cantidad > disponible) {
-    return { error: `Solo quedan ${disponible} ${unidad ?? ""} de "${material}" en Bodega.` };
+    return { error: `Solo quedan ${disponible} ${unidad ?? ""} de "${materialOrigen}" en Bodega.` };
   }
 
   const tomas = tomarDeLotesFIFO(stockMaterial!.lotes, cantidad);
@@ -71,7 +76,7 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
         factura_id: lote.facturaId,
         transferencia_id: lote.transferenciaId,
         categoria: "Material",
-        material,
+        material: materialDestino,
         cantidad: cantidadLote,
         unidad,
         costo_unitario: lote.costoUnitario,
@@ -90,7 +95,7 @@ export async function despacharBodega(_prevState: ActionState, formData: FormDat
     }
 
     const { error: despachoError } = await supabase.from("bodega_despachos").insert({
-      material,
+      material: materialOrigen,
       cantidad: cantidadLote,
       unidad,
       costo_unitario: lote.costoUnitario,
