@@ -43,28 +43,14 @@ export interface CatalogoMaterialPrompt {
   unidad: string;
 }
 
-function construirPromptFactura(
-  etapas: { id: number; nombre: string }[],
-  catalogoMateriales: CatalogoMaterialPrompt[]
-): string {
-  const listaEtapas = etapas.map((e) => `${e.id}: ${e.nombre}`).join("\n");
-  const listaCatalogo = catalogoMateriales
-    .map((m) => `"${m.material}" (unidad: ${m.unidad}) -> etapa ${m.etapaId}`)
-    .join("\n");
-
-  return `Eres un asistente que extrae datos de fotos o PDF de facturas o boletas chilenas de materiales de construcción.
-Una misma boleta suele traer VARIOS productos distintos — identifica cada uno como un ítem separado, no los resumas en uno solo.
-
-Estas son las etapas de obra disponibles del proyecto (id: nombre):
-${listaEtapas}
-
-Este es el catálogo real de materiales de la empresa, con su etapa y unidad correctas (nombre -> etapa):
-${listaCatalogo}
-
-Para cada ítem que identifiques en el documento:
-- Compáralo contra el catálogo de arriba. Los productos casi nunca van a coincidir con el nombre EXACTO
-  del catálogo — el documento puede traer marca comercial, código interno, tamaño de envase, etc.
-  (ej. "MANGA POLIET.RECICL. NEGRA 100 MTS" es el mismo producto que "Polietileno negro" del catálogo;
+// Compartido entre el prompt que lee boletas (construirPromptFactura) y el
+// que sugiere a qué material del catálogo corresponde algo al despachar
+// desde Bodega (sugerirMaterialCatalogo) — toda sinonimia/criterio de
+// coincidencia aprendido acá (marcas, códigos, casos ambiguos) debe servir
+// para los dos casos por igual, no solo para el que se escribió primero.
+const EJEMPLOS_Y_REGLAS_CATALOGO = `Compáralo contra el catálogo. Los productos casi nunca van a coincidir con el nombre EXACTO
+del catálogo — puede traer marca comercial, código interno, tamaño de envase, etc.
+(ej. "MANGA POLIET.RECICL. NEGRA 100 MTS" es el mismo producto que "Polietileno negro" del catálogo;
   "CLAVO 4\" (25KG) I (1203050)(140104) . KG" es el mismo producto que "Clavos 4\"" del catálogo;
   "Adhesivo PVC Hoffens 240cc secado rápido tarro" es el mismo producto que "Vinilit" del catálogo —
   ojo que "Vinilit" existe en más de una etapa del catálogo (Electricidad y Sanitarios): este es el
@@ -130,19 +116,43 @@ Para cada ítem que identifiques en el documento:
   "Omega Normal" seguido de medidas (ej. "OMEGA NORMAL 38X35X15X8X0,85 L=6,00M", o cualquier variante de esas
   dimensiones/largo) es el mismo producto que "Omega estructural 0,85" de la etapa Techumbre — usa siempre
   "Omega estructural 0,85").
-- Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
-  (copia el nombre tal cual está entre comillas arriba, no inventes variaciones) — no uses el nombre ni la
-  redacción del documento en ese caso.
-- Si el producto claramente pertenece a una etapa del catálogo pero no puedes decidir con confianza CUÁL de
-  dos o más materiales de esa etapa es (ej. el catálogo tiene "Panel SIP 114mm" y "Panel SIP 90mm", y el
-  documento solo dice "Panel SIP" o trae un código/SKU que no indica el espesor) — NO elijas uno al azar ni
-  mezcles el nombre del documento con la etapa del catálogo. Trátalo igual que si no hubiera coincidencia:
-  usa el nombre tal como aparece en el documento y etapa_id null, aunque sepas en general a qué etapa
-  pertenece. etapa_id null es justamente la señal de "revisar a mano" — dejar la etapa puesta con un nombre
-  que no es ninguno de los del catálogo hace que esa compra no se reconozca como hecha y quede como si
-  todavía faltara comprar.
-- Solo si el producto no se parece a nada del catálogo, o cae en el caso de arriba, usa el nombre tal como
-  aparece en el documento (limpio, sin códigos internos ni referencias entre paréntesis) y etapa_id null.
+
+Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
+(copia el nombre tal cual está entre comillas, no inventes variaciones) — no uses el nombre ni la redacción
+del documento/consulta en ese caso.
+
+Si el producto claramente pertenece a una etapa del catálogo pero no puedes decidir con confianza CUÁL de
+dos o más materiales de esa etapa es (ej. el catálogo tiene "Panel SIP 114mm" y "Panel SIP 90mm", y el
+documento solo dice "Panel SIP" o trae un código/SKU que no indica el espesor) — NO elijas uno al azar ni
+mezcles el nombre del documento con la etapa del catálogo. Trátalo igual que si no hubiera coincidencia:
+usa el nombre tal como aparece en el documento/consulta y etapa_id null, aunque sepas en general a qué
+etapa pertenece. etapa_id null es justamente la señal de "revisar a mano" — dejar la etapa puesta con un
+nombre que no es ninguno de los del catálogo hace que esa compra no se reconozca como hecha y quede como
+si todavía faltara comprar.
+
+Solo si el producto no se parece a nada del catálogo, o cae en el caso de arriba, usa el nombre tal como
+aparece en el documento/consulta (limpio, sin códigos internos ni referencias entre paréntesis) y etapa_id null.`;
+
+function construirPromptFactura(
+  etapas: { id: number; nombre: string }[],
+  catalogoMateriales: CatalogoMaterialPrompt[]
+): string {
+  const listaEtapas = etapas.map((e) => `${e.id}: ${e.nombre}`).join("\n");
+  const listaCatalogo = catalogoMateriales
+    .map((m) => `"${m.material}" (unidad: ${m.unidad}) -> etapa ${m.etapaId}`)
+    .join("\n");
+
+  return `Eres un asistente que extrae datos de fotos o PDF de facturas o boletas chilenas de materiales de construcción.
+Una misma boleta suele traer VARIOS productos distintos — identifica cada uno como un ítem separado, no los resumas en uno solo.
+
+Estas son las etapas de obra disponibles del proyecto (id: nombre):
+${listaEtapas}
+
+Este es el catálogo real de materiales de la empresa, con su etapa y unidad correctas (nombre -> etapa):
+${listaCatalogo}
+
+Para cada ítem que identifiques en el documento:
+${EJEMPLOS_Y_REGLAS_CATALOGO}
 
 Para el monto de cada línea (el "monto_total" de cada ítem): usa el número que el documento ya trae impreso
 en la columna del subtotal/total de esa línea (a veces se llama "Total", "Subtotal" o similar) — NO lo calcules
@@ -389,7 +399,7 @@ ${listaCatalogo}
 
 Producto a identificar: "${nombreProducto}"
 
-Si el producto corresponde claramente a UNO de los materiales del catálogo de arriba (aunque el nombre no sea idéntico — puede tener marca, color, tamaño de envase, código, etc. de más que el catálogo no tiene), responde con el nombre EXACTO de ese material del catálogo. Si no corresponde a ninguno con confianza, o es ambiguo entre dos o más, responde con material null.
+${EJEMPLOS_Y_REGLAS_CATALOGO}
 
 Devuelve SOLO un JSON válido (sin markdown, sin texto extra) con esta forma exacta:
 {"material": string o null, "etapa_id": number o null}`;
