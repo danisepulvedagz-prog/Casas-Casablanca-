@@ -77,9 +77,11 @@ del catálogo — puede traer marca comercial, código interno, tamaño de envas
   etapa Deck exterior — es la madera para construir el deck, no confundir con la madera de estructura;
   "Fibrocemento 6mm 1.2 x 2.4 mts base cerámica Pizarreño" (o variantes de medidas/espesor de fibrocemento
   Pizarreño) es el mismo producto que "Internit" de la etapa Cielo falso y muro de volcanita;
-  "Disco de sierra 7 1/4\" 30 dientes eje 16mm" o "Disco diamantado turbo corta porcelanato" (o cualquier
-  variante de medidas/dientes/eje de disco de corte para sierra circular o amoladora) es el mismo producto
-  que "Discos" de la etapa Instalación porcelanato;
+  cualquier "disco diamantado" (con cualquier variante de marca, medida, dientes/segmentos o eje — turbo,
+  liso, segmentado, para amoladora o sierra — y aunque no diga explícitamente "porcelanato" o "cerámico") y
+  también "Disco de sierra 7 1/4\" 30 dientes eje 16mm" (o cualquier variante de medidas/dientes/eje de disco
+  de corte para sierra circular o amoladora en general) son el mismo producto que "Discos" de la etapa
+  Instalación porcelanato — los discos diamantados siempre van ahí, nunca a otra etapa;
   "Adisol" (incluida la variante "Adisol Latex") y "Sika Latex" (aunque vengan en una boleta junto a brochas,
   rodillos u otros insumos de pintura) son el mismo producto que "Puente adherente" de la etapa Afinado de piso;
   una línea de boleta que diga "Puerta Ext" seguido de una especie de madera como "Pino Italia" (ej. "PUERTA
