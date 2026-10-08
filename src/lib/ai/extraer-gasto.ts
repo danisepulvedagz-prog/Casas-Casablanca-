@@ -130,7 +130,11 @@ del catálogo — puede traer marca comercial, código interno, tamaño de envas
   "Omega estructural 0,85";
   cualquier espuma de poliuretano en aerosol (ej. "Espuma expansiva", "Espuma PU", con cualquier marca como
   Fischer/Sika/Tytan o tamaño de envase, p. ej. "750ml") es el mismo producto que "Espuma" del catálogo, de
-  la etapa Sanitarios — usa siempre "Espuma", sin marca ni tamaño).
+  la etapa Sanitarios — usa siempre "Espuma", sin marca ni tamaño;
+  "Acople" (manguera/trazado, sin más especificación) es "Copla" de la etapa Preparación de terreno — ojo que
+  el catálogo también tiene "Coplas" y "Copla 50mm" en la etapa Sanitarios, pero esas son conexiones de cañería
+  PVC/PPR, un producto distinto; "Acople" a secas (sin mención de cañería/PVC) siempre es el de Preparación de
+  terreno).
 
 Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
 (copia el nombre tal cual está entre comillas, no inventes variaciones) — no uses el nombre ni la redacción
