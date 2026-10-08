@@ -43,6 +43,18 @@ export interface CatalogoMaterialPrompt {
   unidad: string;
 }
 
+export interface EtapaPrompt {
+  id: number;
+  nombre: string;
+  // Rango de fechas de ESTE proyecto para esta etapa (si ya se registró) —
+  // sirve para desambiguar cuando un material existe en más de una etapa del
+  // catálogo con el mismo nombre (ver REGLA_DESAMBIGUAR_POR_FECHA más abajo).
+  fechaInicioPlan: string | null;
+  fechaFinPlan: string | null;
+  fechaInicioReal: string | null;
+  fechaFinReal: string | null;
+}
+
 // Compartido entre el prompt que lee boletas (construirPromptFactura) y el
 // que sugiere a qué material del catálogo corresponde algo al despachar
 // desde Bodega (sugerirMaterialCatalogo) — toda sinonimia/criterio de
@@ -115,7 +127,10 @@ del catálogo — puede traer marca comercial, código interno, tamaño de envas
   "Revestimiento muro" de la etapa Baños terminaciones según su formato: 60x60 es piso, 30x60 es muro;
   "Omega Normal" seguido de medidas (ej. "OMEGA NORMAL 38X35X15X8X0,85 L=6,00M", o cualquier variante de esas
   dimensiones/largo) es el mismo producto que "Omega estructural 0,85" de la etapa Techumbre — usa siempre
-  "Omega estructural 0,85").
+  "Omega estructural 0,85";
+  cualquier espuma de poliuretano en aerosol (ej. "Espuma expansiva", "Espuma PU", con cualquier marca como
+  Fischer/Sika/Tytan o tamaño de envase, p. ej. "750ml") es el mismo producto que "Espuma" del catálogo, de
+  la etapa Sanitarios — usa siempre "Espuma", sin marca ni tamaño).
 
 Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
 (copia el nombre tal cual está entre comillas, no inventes variaciones) — no uses el nombre ni la redacción
@@ -133,11 +148,14 @@ si todavía faltara comprar.
 Solo si el producto no se parece a nada del catálogo, o cae en el caso de arriba, usa el nombre tal como
 aparece en el documento/consulta (limpio, sin códigos internos ni referencias entre paréntesis) y etapa_id null.`;
 
-function construirPromptFactura(
-  etapas: { id: number; nombre: string }[],
-  catalogoMateriales: CatalogoMaterialPrompt[]
-): string {
-  const listaEtapas = etapas.map((e) => `${e.id}: ${e.nombre}`).join("\n");
+function construirPromptFactura(etapas: EtapaPrompt[], catalogoMateriales: CatalogoMaterialPrompt[]): string {
+  const listaEtapas = etapas
+    .map((e) => {
+      const real = e.fechaInicioReal && e.fechaFinReal ? `, real: ${e.fechaInicioReal} a ${e.fechaFinReal}` : "";
+      const plan = e.fechaInicioPlan && e.fechaFinPlan ? `, plan: ${e.fechaInicioPlan} a ${e.fechaFinPlan}` : "";
+      return `${e.id}: ${e.nombre}${real}${plan}`;
+    })
+    .join("\n");
   const listaCatalogo = catalogoMateriales
     .map((m) => `"${m.material}" (unidad: ${m.unidad}) -> etapa ${m.etapaId}`)
     .join("\n");
@@ -145,7 +163,8 @@ function construirPromptFactura(
   return `Eres un asistente que extrae datos de fotos o PDF de facturas o boletas chilenas de materiales de construcción.
 Una misma boleta suele traer VARIOS productos distintos — identifica cada uno como un ítem separado, no los resumas en uno solo.
 
-Estas son las etapas de obra disponibles del proyecto (id: nombre):
+Estas son las etapas de obra disponibles del proyecto (id: nombre, con su rango de fechas real y/o planificado si ya
+se registró — no todas tienen fechas todavía):
 ${listaEtapas}
 
 Este es el catálogo real de materiales de la empresa, con su etapa y unidad correctas (nombre -> etapa):
@@ -153,6 +172,16 @@ ${listaCatalogo}
 
 Para cada ítem que identifiques en el documento:
 ${EJEMPLOS_Y_REGLAS_CATALOGO}
+
+Caso particular: cuando el MISMO nombre de material existe en el catálogo bajo MÁS DE UNA etapa (ej. "Pino Bruto
+2x2" existe tanto en la etapa Radier como en Revestimiento exterior y aleros) — esto es distinto al caso de arriba
+(ese era sobre variantes de un mismo tipo de producto dentro de UNA etapa, como espesores de Panel SIP). Acá, en
+vez de tratarlo como ambiguo, usa la fecha del documento (la que tú mismo extraigas) para decidir: compárala
+contra el rango de fechas de cada etapa candidata de la lista de arriba (preferir el rango "real" si lo tiene esa
+etapa; si no, usa el "plan") y elige la etapa candidata cuyo rango esté MÁS CERCA de la fecha del documento — no
+hace falta que la fecha caiga dentro del rango, solo que sea la más próxima entre las candidatas. Solo si NINGUNA
+de las etapas candidatas tiene fechas disponibles para comparar, trátalo entonces como el caso de arriba (nombre
+tal como aparece en el documento, etapa_id null).
 
 Para el monto de cada línea (el "monto_total" de cada ítem): usa el número que el documento ya trae impreso
 en la columna del subtotal/total de esa línea (a veces se llama "Total", "Subtotal" o similar) — NO lo calcules
@@ -335,7 +364,7 @@ async function llamarClaude(prompt: string, archivo: ArchivoAdjunto | null, maxT
 export async function extraerItemsFactura(
   imagenBase64: string,
   mimeType: string,
-  etapas: { id: number; nombre: string }[],
+  etapas: EtapaPrompt[],
   catalogoMateriales: CatalogoMaterialPrompt[]
 ): Promise<FacturaExtraida> {
   const prompt = construirPromptFactura(etapas, catalogoMateriales);

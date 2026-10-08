@@ -432,15 +432,32 @@ export async function extraerFactura(formData: FormData): Promise<ExtraccionFact
             .select("id, nombre")
             .in("modalidad", modalidadesIncluidas(proyecto.modalidad))
             .order("orden"),
-      supabase.from("proyecto_etapas").select("etapa_id").eq("proyecto_id", proyectoId),
+      supabase
+        .from("proyecto_etapas")
+        .select("etapa_id, fecha_inicio_plan, fecha_fin_plan, fecha_inicio_real, fecha_fin_real")
+        .eq("proyecto_id", proyectoId),
     ]);
 
     // Solo las etapas que el proyecto realmente tiene (ej. si no tiene deck,
     // esa etapa no debe sugerirse) — Bodega usa el catálogo completo tal cual.
-    const etapaIdsProyecto = new Set((proyectoEtapas ?? []).map((pe) => pe.etapa_id));
-    const etapas = esBodega
+    // Las fechas de cada una (si ya se registraron) le sirven a la IA para
+    // desambiguar cuando un material existe en más de una etapa del catálogo
+    // con el mismo nombre (ver REGLA_DESAMBIGUAR_POR_FECHA en el prompt).
+    const fechasPorEtapa = new Map((proyectoEtapas ?? []).map((pe) => [pe.etapa_id, pe]));
+    const etapasBase = esBodega
       ? (catalogoEtapas ?? [])
-      : (catalogoEtapas ?? []).filter((e) => etapaIdsProyecto.has(e.id));
+      : (catalogoEtapas ?? []).filter((e) => fechasPorEtapa.has(e.id));
+    const etapas = etapasBase.map((e) => {
+      const fechas = fechasPorEtapa.get(e.id);
+      return {
+        id: e.id,
+        nombre: e.nombre,
+        fechaInicioPlan: fechas?.fecha_inicio_plan ?? null,
+        fechaFinPlan: fechas?.fecha_fin_plan ?? null,
+        fechaInicioReal: fechas?.fecha_inicio_real ?? null,
+        fechaFinReal: fechas?.fecha_fin_real ?? null,
+      };
+    });
 
     const { data: catalogoMaterialesRaw } = await supabase
       .from("catalogo_materiales")
