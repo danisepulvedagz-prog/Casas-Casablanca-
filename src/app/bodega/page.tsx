@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { crearUrlFirmada } from "@/lib/storage";
 import { calcularStockBodega } from "@/lib/bodega";
 import { construirEtapasPorProyecto } from "@/lib/etapas";
 import { currencyFormatter } from "@/lib/format";
@@ -8,8 +9,7 @@ import { BTN_SECONDARY } from "@/lib/ui";
 import { despacharBodega, obtenerBodegaId } from "@/app/bodega/actions";
 import { DespachoForm } from "@/app/bodega/despacho-form";
 import { HistorialDespachos, type DespachoRow } from "@/app/bodega/historial-despachos";
-
-const numberFormatter = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 });
+import { StockDisponible, type LoteConComprobante, type StockMaterialConLotes } from "@/app/bodega/stock-disponible";
 
 export default async function BodegaPage({
   searchParams,
@@ -39,6 +39,51 @@ export default async function BodegaPage({
   ]);
 
   const stock = calcularStockBodega(gastosBodega ?? []);
+
+  // Cada lote de stock viene de una compra real (factura o transferencia) —
+  // se buscan acá para poder mostrar "Ver foto" y "Editar" al lado de cada
+  // material, igual que en la página de gastos de un proyecto normal.
+  const facturaIds = [
+    ...new Set(stock.flatMap((s) => s.lotes.flatMap((l) => (l.facturaId ? [l.facturaId] : [])))),
+  ];
+  const transferenciaIds = [
+    ...new Set(stock.flatMap((s) => s.lotes.flatMap((l) => (l.transferenciaId ? [l.transferenciaId] : [])))),
+  ];
+  const [{ data: facturasLotes }, { data: transferenciasLotes }] = await Promise.all([
+    facturaIds.length
+      ? supabase.from("facturas").select("id, proveedor, n_documento, foto_url").in("id", facturaIds)
+      : Promise.resolve({ data: [] as { id: string; proveedor: string | null; n_documento: string | null; foto_url: string | null }[] }),
+    transferenciaIds.length
+      ? supabase.from("transferencias").select("id, destinatario, n_operacion, foto_url").in("id", transferenciaIds)
+      : Promise.resolve({ data: [] as { id: string; destinatario: string | null; n_operacion: string | null; foto_url: string | null }[] }),
+  ]);
+
+  const facturasPorId = new Map(
+    await Promise.all(
+      (facturasLotes ?? []).map(async (f) => [f.id, { ...f, fotoUrlFirmada: await crearUrlFirmada(f.foto_url) }] as const)
+    )
+  );
+  const transferenciasPorId = new Map(
+    await Promise.all(
+      (transferenciasLotes ?? []).map(
+        async (t) => [t.id, { ...t, fotoUrlFirmada: await crearUrlFirmada(t.foto_url) }] as const
+      )
+    )
+  );
+
+  const stockConLotes: StockMaterialConLotes[] = stock.map((s) => ({
+    ...s,
+    lotes: s.lotes.map((l): LoteConComprobante => {
+      const factura = l.facturaId ? facturasPorId.get(l.facturaId) : undefined;
+      const transferencia = l.transferenciaId ? transferenciasPorId.get(l.transferenciaId) : undefined;
+      return {
+        ...l,
+        proveedor: factura?.proveedor ?? transferencia?.destinatario ?? null,
+        nDocumento: factura?.n_documento ?? transferencia?.n_operacion ?? null,
+        fotoUrlFirmada: factura?.fotoUrlFirmada ?? transferencia?.fotoUrlFirmada ?? null,
+      };
+    }),
+  }));
 
   const nombrePorProyecto = new Map((proyectos ?? []).map((p) => [p.id, p.nombre]));
   const despachos: DespachoRow[] = (despachosRaw ?? []).map((d) => ({
@@ -95,37 +140,10 @@ export default async function BodegaPage({
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Stock disponible</h2>
           <p className="text-sm text-zinc-500">Valor en bodega: {currencyFormatter.format(montoTotalStock)}</p>
         </div>
-        {stock.length === 0 ? (
+        {stockConLotes.length === 0 ? (
           <p className="text-sm text-zinc-500">No hay stock disponible — compra materiales para Bodega primero.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-                <tr>
-                  <th className="px-4 py-3">Material</th>
-                  <th className="px-4 py-3">Disponible</th>
-                  <th className="px-4 py-3">Costo promedio</th>
-                  <th className="px-4 py-3">Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {stock.map((s) => (
-                  <tr key={s.material} className="bg-white dark:bg-zinc-950">
-                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{s.material}</td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
-                      {numberFormatter.format(s.cantidadDisponible)} {s.unidad ?? ""}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
-                      {currencyFormatter.format(s.costoPromedio)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
-                      {currencyFormatter.format(s.cantidadDisponible * s.costoPromedio)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <StockDisponible stock={stockConLotes} bodegaId={bodegaId} />
         )}
       </section>
 
