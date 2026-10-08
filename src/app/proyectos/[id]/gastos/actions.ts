@@ -192,6 +192,9 @@ export async function deleteFactura(proyectoId: string, facturaId: string) {
   }
 
   revalidatePath(`/proyectos/${proyectoId}/gastos`);
+  // Barato revalidar siempre, aunque este proyecto no sea Bodega — si lo es,
+  // la página de Bodega muestra sus propias facturas con botones de borrar.
+  revalidatePath("/bodega");
 }
 
 /**
@@ -283,6 +286,7 @@ export async function deleteTransferencia(proyectoId: string, transferenciaId: s
   }
 
   revalidatePath(`/proyectos/${proyectoId}/gastos`);
+  revalidatePath("/bodega");
 }
 
 /**
@@ -350,6 +354,7 @@ export async function deleteGasto(proyectoId: string, gastoId: string) {
     throw new Error(`No se pudo eliminar el gasto: ${error.message}`);
   }
   revalidatePath(`/proyectos/${proyectoId}/gastos`);
+  revalidatePath("/bodega");
 }
 
 // ---------------------------------------------------------------------

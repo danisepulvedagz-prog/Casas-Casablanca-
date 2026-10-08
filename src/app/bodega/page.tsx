@@ -9,7 +9,12 @@ import { BTN_SECONDARY } from "@/lib/ui";
 import { despacharBodega, obtenerBodegaId } from "@/app/bodega/actions";
 import { DespachoForm } from "@/app/bodega/despacho-form";
 import { HistorialDespachos, type DespachoRow } from "@/app/bodega/historial-despachos";
-import { StockDisponible, type LoteConComprobante, type StockMaterialConLotes } from "@/app/bodega/stock-disponible";
+import { ComprasBodega } from "@/app/bodega/compras-bodega";
+import type { Database } from "@/lib/supabase/types";
+
+const numberFormatter = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 });
+
+type Gasto = Database["public"]["Tables"]["gastos"]["Row"];
 
 export default async function BodegaPage({
   searchParams,
@@ -30,7 +35,12 @@ export default async function BodegaPage({
     { data: catalogoEtapas },
     { data: proyectoEtapas },
   ] = await Promise.all([
-    supabase.from("gastos").select("*").eq("proyecto_id", bodegaId).eq("categoria", "Material"),
+    supabase
+      .from("gastos")
+      .select("*")
+      .eq("proyecto_id", bodegaId)
+      .eq("categoria", "Material")
+      .order("created_at", { ascending: false }),
     supabase.from("bodega_despachos").select("*").order("fecha", { ascending: false }),
     supabase.from("proyectos").select("id, nombre, modalidad").neq("modalidad", "Bodega").order("nombre"),
     supabase.from("catalogo_materiales").select("etapa_id, material"),
@@ -40,50 +50,50 @@ export default async function BodegaPage({
 
   const stock = calcularStockBodega(gastosBodega ?? []);
 
-  // Cada lote de stock viene de una compra real (factura o transferencia) —
-  // se buscan acá para poder mostrar "Ver foto" y "Editar" al lado de cada
-  // material, igual que en la página de gastos de un proyecto normal.
-  const facturaIds = [
-    ...new Set(stock.flatMap((s) => s.lotes.flatMap((l) => (l.facturaId ? [l.facturaId] : [])))),
-  ];
+  // Las compras de Bodega se muestran agrupadas por factura/transferencia
+  // (igual que en la página de gastos de un proyecto normal), para poder
+  // ver foto, editar o eliminar cada una directo desde acá.
+  const facturaIds = [...new Set((gastosBodega ?? []).flatMap((g) => (g.factura_id ? [g.factura_id] : [])))];
   const transferenciaIds = [
-    ...new Set(stock.flatMap((s) => s.lotes.flatMap((l) => (l.transferenciaId ? [l.transferenciaId] : [])))),
+    ...new Set((gastosBodega ?? []).flatMap((g) => (g.transferencia_id ? [g.transferencia_id] : []))),
   ];
-  const [{ data: facturasLotes }, { data: transferenciasLotes }] = await Promise.all([
+  const [{ data: facturas }, { data: transferencias }] = await Promise.all([
     facturaIds.length
-      ? supabase.from("facturas").select("id, proveedor, n_documento, foto_url").in("id", facturaIds)
-      : Promise.resolve({ data: [] as { id: string; proveedor: string | null; n_documento: string | null; foto_url: string | null }[] }),
+      ? supabase.from("facturas").select("*").in("id", facturaIds).order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
     transferenciaIds.length
-      ? supabase.from("transferencias").select("id, destinatario, n_operacion, foto_url").in("id", transferenciaIds)
-      : Promise.resolve({ data: [] as { id: string; destinatario: string | null; n_operacion: string | null; foto_url: string | null }[] }),
+      ? supabase.from("transferencias").select("*").in("id", transferenciaIds).order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
   ]);
 
-  const facturasPorId = new Map(
-    await Promise.all(
-      (facturasLotes ?? []).map(async (f) => [f.id, { ...f, fotoUrlFirmada: await crearUrlFirmada(f.foto_url) }] as const)
-    )
-  );
-  const transferenciasPorId = new Map(
-    await Promise.all(
-      (transferenciasLotes ?? []).map(
-        async (t) => [t.id, { ...t, fotoUrlFirmada: await crearUrlFirmada(t.foto_url) }] as const
-      )
-    )
-  );
+  const gastosPorFactura = new Map<string, Gasto[]>();
+  const gastosPorTransferencia = new Map<string, Gasto[]>();
+  for (const g of gastosBodega ?? []) {
+    if (g.factura_id) {
+      const lista = gastosPorFactura.get(g.factura_id) ?? [];
+      lista.push(g);
+      gastosPorFactura.set(g.factura_id, lista);
+    } else if (g.transferencia_id) {
+      const lista = gastosPorTransferencia.get(g.transferencia_id) ?? [];
+      lista.push(g);
+      gastosPorTransferencia.set(g.transferencia_id, lista);
+    }
+  }
 
-  const stockConLotes: StockMaterialConLotes[] = stock.map((s) => ({
-    ...s,
-    lotes: s.lotes.map((l): LoteConComprobante => {
-      const factura = l.facturaId ? facturasPorId.get(l.facturaId) : undefined;
-      const transferencia = l.transferenciaId ? transferenciasPorId.get(l.transferenciaId) : undefined;
-      return {
-        ...l,
-        proveedor: factura?.proveedor ?? transferencia?.destinatario ?? null,
-        nDocumento: factura?.n_documento ?? transferencia?.n_operacion ?? null,
-        fotoUrlFirmada: factura?.fotoUrlFirmada ?? transferencia?.fotoUrlFirmada ?? null,
-      };
-    }),
-  }));
+  const facturasConFoto = await Promise.all(
+    (facturas ?? []).map(async (f) => ({
+      ...f,
+      fotoUrlFirmada: await crearUrlFirmada(f.foto_url),
+      items: gastosPorFactura.get(f.id) ?? [],
+    }))
+  );
+  const transferenciasConFoto = await Promise.all(
+    (transferencias ?? []).map(async (t) => ({
+      ...t,
+      fotoUrlFirmada: await crearUrlFirmada(t.foto_url),
+      items: gastosPorTransferencia.get(t.id) ?? [],
+    }))
+  );
 
   const nombrePorProyecto = new Map((proyectos ?? []).map((p) => [p.id, p.nombre]));
   const despachos: DespachoRow[] = (despachosRaw ?? []).map((d) => ({
@@ -140,10 +150,37 @@ export default async function BodegaPage({
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Stock disponible</h2>
           <p className="text-sm text-zinc-500">Valor en bodega: {currencyFormatter.format(montoTotalStock)}</p>
         </div>
-        {stockConLotes.length === 0 ? (
+        {stock.length === 0 ? (
           <p className="text-sm text-zinc-500">No hay stock disponible — compra materiales para Bodega primero.</p>
         ) : (
-          <StockDisponible stock={stockConLotes} bodegaId={bodegaId} />
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-100 text-xs uppercase text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                <tr>
+                  <th className="px-4 py-3">Material</th>
+                  <th className="px-4 py-3">Disponible</th>
+                  <th className="px-4 py-3">Costo promedio</th>
+                  <th className="px-4 py-3">Valor</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {stock.map((s) => (
+                  <tr key={s.material} className="bg-white dark:bg-zinc-950">
+                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{s.material}</td>
+                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                      {numberFormatter.format(s.cantidadDisponible)} {s.unidad ?? ""}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                      {currencyFormatter.format(s.costoPromedio)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
+                      {currencyFormatter.format(s.cantidadDisponible * s.costoPromedio)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -157,6 +194,11 @@ export default async function BodegaPage({
           materialInicial={materialInicial}
           action={despacharBodega}
         />
+      </section>
+
+      <section className="mb-10">
+        <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">Compras registradas</h2>
+        <ComprasBodega proyectoId={bodegaId} facturas={facturasConFoto} transferencias={transferenciasConFoto} />
       </section>
 
       <section>
