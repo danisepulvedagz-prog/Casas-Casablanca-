@@ -459,13 +459,16 @@ function PasoMaterialSubirFoto({
           return;
         }
         const { data } = resultado;
-        // Sin etapa_id la IA no encontró coincidencia en el catálogo para
-        // este producto — en vez de dejar en "Material" el nombre tal como
-        // vino en la boleta (que puede no calzar con ningún material real),
-        // se deja "Otros" y ese nombre pasa a Notas. La etapa queda vacía a
-        // propósito: la persona la elige a mano (ver necesitaElegirEtapa).
+        // Sin coincidencia en el catálogo la IA no pudo relacionar este
+        // producto con ningún material real — en vez de dejar en "Material"
+        // el nombre tal como vino en la boleta (que puede no calzar con
+        // nada), se deja "Otros" y ese nombre pasa a Notas. La etapa queda
+        // vacía a propósito: la persona la elige a mano (ver
+        // necesitaElegirEtapa). OJO: no se usa it.etapa_id == null para esto
+        // — en Bodega la etapa SIEMPRE viene null (se elige recién al
+        // despachar), aunque el material sí haya calzado con el catálogo.
         const items: ItemEditable[] = data.items.map((it) => {
-          const sinCoincidencia = it.etapa_id == null;
+          const sinCoincidencia = !it.coincideCatalogo;
           return {
             key: crypto.randomUUID(),
             material: sinCoincidencia ? "Otros" : it.material ?? "",

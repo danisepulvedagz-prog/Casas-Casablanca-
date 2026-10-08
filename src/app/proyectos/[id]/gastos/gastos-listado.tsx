@@ -381,11 +381,29 @@ export function GastosListado({
                                 {currencyFormatter.format(gasto.monto_total)}
                               </td>
                               <td className="px-4 py-2">
-                                <DeleteGastoButton
-                                  proyectoId={proyectoId}
-                                  gastoId={gasto.id}
-                                  descripcion={gasto.material ?? gasto.categoria}
-                                />
+                                <div className="flex items-center gap-3 whitespace-nowrap">
+                                  {factura.fotoUrlFirmada && (
+                                    <a
+                                      href={factura.fotoUrlFirmada}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={LINK_MUTED}
+                                    >
+                                      Ver foto completa
+                                    </a>
+                                  )}
+                                  <Link
+                                    href={`/proyectos/${proyectoId}/gastos/factura/${factura.id}/editar`}
+                                    className={LINK_MUTED}
+                                  >
+                                    Editar factura
+                                  </Link>
+                                  <DeleteGastoButton
+                                    proyectoId={proyectoId}
+                                    gastoId={gasto.id}
+                                    descripcion={gasto.material ?? gasto.categoria}
+                                  />
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -495,11 +513,29 @@ export function GastosListado({
                                 {currencyFormatter.format(gasto.monto_total)}
                               </td>
                               <td className="px-4 py-2">
-                                <DeleteGastoButton
-                                  proyectoId={proyectoId}
-                                  gastoId={gasto.id}
-                                  descripcion={gasto.material ?? gasto.categoria}
-                                />
+                                <div className="flex items-center gap-3 whitespace-nowrap">
+                                  {transferencia.fotoUrlFirmada && (
+                                    <a
+                                      href={transferencia.fotoUrlFirmada}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={LINK_MUTED}
+                                    >
+                                      Ver foto completa
+                                    </a>
+                                  )}
+                                  <Link
+                                    href={`/proyectos/${proyectoId}/gastos/transferencia/${transferencia.id}/editar`}
+                                    className={LINK_MUTED}
+                                  >
+                                    Editar transferencia
+                                  </Link>
+                                  <DeleteGastoButton
+                                    proyectoId={proyectoId}
+                                    gastoId={gasto.id}
+                                    descripcion={gasto.material ?? gasto.categoria}
+                                  />
+                                </div>
                               </td>
                             </tr>
                           ))}

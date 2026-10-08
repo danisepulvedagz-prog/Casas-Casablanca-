@@ -356,7 +356,20 @@ export async function deleteGasto(proyectoId: string, gastoId: string) {
 // Factura con varios ítems (Material, leída con IA)
 // ---------------------------------------------------------------------
 
-export type ExtraccionFactura = { data: FacturaExtraida } | { error: string };
+// En Bodega, extraerFactura fuerza etapa_id a null en TODOS los ítems (la
+// etapa se elige recién al despachar, nunca al comprar) — eso deja a
+// etapa_id inútil como señal de "la IA no encontró coincidencia en el
+// catálogo" para ese caso particular. coincideCatalogo viaja aparte,
+// calculado ANTES de ese forzado, para que el wizard pueda distinguir
+// "sin etapa porque es Bodega" (nombre del catálogo igual, válido) de
+// "sin etapa porque no hay coincidencia" (nombre del documento, va a Otros).
+export type ExtraccionFactura =
+  | {
+      data: Omit<FacturaExtraida, "items"> & {
+        items: (FacturaExtraida["items"][number] & { coincideCatalogo: boolean })[];
+      };
+    }
+  | { error: string };
 
 /**
  * Red de seguridad por si la IA no siguió la instrucción del prompt: nunca
@@ -470,11 +483,18 @@ export async function extraerFactura(formData: FormData): Promise<ExtraccionFact
 
     const data = await extraerItemsFactura(imagenBase64, mimeType, etapas, catalogoMateriales);
     const dataCorregida = corregirEtapasSinCoincidencia(data, catalogoMateriales);
+    // coincideCatalogo se calcula ACÁ, antes de forzar etapa_id a null para
+    // Bodega — ver el comentario de ExtraccionFactura más arriba.
+    const itemsConCoincidencia = dataCorregida.items.map((it) => ({
+      ...it,
+      coincideCatalogo: it.etapa_id != null,
+    }));
     // En Bodega la etapa se elige al despachar, nunca al comprar.
     return {
-      data: esBodega
-        ? { ...dataCorregida, items: dataCorregida.items.map((it) => ({ ...it, etapa_id: null })) }
-        : dataCorregida,
+      data: {
+        ...dataCorregida,
+        items: esBodega ? itemsConCoincidencia.map((it) => ({ ...it, etapa_id: null })) : itemsConCoincidencia,
+      },
     };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "No se pudo leer la imagen." };
