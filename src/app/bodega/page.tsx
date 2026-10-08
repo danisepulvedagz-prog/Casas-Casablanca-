@@ -78,7 +78,10 @@ export default async function BodegaPage({
             Materiales comprados por adelantado, pendientes de repartir a los proyectos.
           </p>
         </div>
-        <Link href={`/proyectos/${bodegaId}/gastos/nuevo`} className={BTN_SECONDARY}>
+        {/* /gastos/nuevo (no la ruta por proyecto) porque esa sí está
+            permitida para el rol "usuario" — así quien solo puede ver Bodega
+            también puede comprar para ella sin chocar con el middleware. */}
+        <Link href={`/gastos/nuevo?proyecto=${bodegaId}`} className={BTN_SECONDARY}>
           + Comprar para Bodega
         </Link>
       </div>
