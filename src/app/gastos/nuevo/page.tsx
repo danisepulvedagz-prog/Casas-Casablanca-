@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { GastoWizard } from "@/app/proyectos/[id]/gastos/nuevo/gasto-wizard";
 import { construirEtapasPorProyecto, modalidadesIncluidas } from "@/lib/etapas";
 import { BTN_SECONDARY } from "@/lib/ui";
+import { SelectorProyecto } from "@/app/gastos/nuevo/selector-proyecto";
 import type { Database } from "@/lib/supabase/types";
 
 type CatalogoEtapa = Database["public"]["Tables"]["catalogo_etapas"]["Row"];
@@ -77,25 +78,13 @@ export default async function NuevoGastoGlobalPage({
           <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300" htmlFor="proyecto">
             Proyecto
           </label>
-          <select
-            id="proyecto"
-            name="proyecto"
-            defaultValue={proyectoId ?? ""}
-            className="w-72 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-          >
-            <option value="" disabled>
-              Selecciona un proyecto
-            </option>
-            {(proyectos ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
+          <SelectorProyecto proyectoId={proyectoId} proyectos={proyectos ?? []} />
         </div>
-        <button type="submit" className={BTN_SECONDARY}>
-          Continuar
-        </button>
+        <noscript>
+          <button type="submit" className={BTN_SECONDARY}>
+            Continuar
+          </button>
+        </noscript>
       </form>
 
       {(proyectos ?? []).length === 0 && (
