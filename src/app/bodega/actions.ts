@@ -188,3 +188,91 @@ export async function sugerirMaterialDespacho(material: string): Promise<Sugeren
     return null;
   }
 }
+
+/**
+ * Deshace un despacho por completo: borra el gasto que había quedado en el
+ * proyecto destino, borra el registro del despacho, y devuelve la cantidad
+ * a Bodega — sumándola a la compra de origen si todavía existe (quedó con
+ * menos, pero no se agotó), o recreándola si esa compra ya se había agotado
+ * y borrado (en ese caso la factura/transferencia de respaldo se recupera
+ * del propio gasto que se está por borrar, que quedó con la misma).
+ */
+export async function eliminarDespacho(despachoId: string) {
+  const supabase = await createClient();
+  const bodegaId = await obtenerBodegaId(supabase);
+  if (!bodegaId) throw new Error("No se encontró el proyecto Bodega.");
+
+  const { data: despacho, error: despachoFetchError } = await supabase
+    .from("bodega_despachos")
+    .select("*")
+    .eq("id", despachoId)
+    .single();
+  if (despachoFetchError || !despacho) {
+    throw new Error(`No se encontró el despacho: ${despachoFetchError?.message ?? "error desconocido"}`);
+  }
+
+  const { data: gastoDestino, error: gastoDestinoError } = await supabase
+    .from("gastos")
+    .select("factura_id, transferencia_id")
+    .eq("id", despacho.gasto_generado_id)
+    .single();
+  if (gastoDestinoError || !gastoDestino) {
+    throw new Error(`No se encontró el gasto del proyecto destino: ${gastoDestinoError?.message ?? "error desconocido"}`);
+  }
+
+  // Se borra el registro del despacho ANTES que el gasto destino: la fila
+  // apunta a ambos (gasto_generado_id y gasto_origen_id) y no se puede
+  // borrar un gasto mientras un despacho todavía lo referencia.
+  const { error: deleteDespachoError } = await supabase.from("bodega_despachos").delete().eq("id", despachoId);
+  if (deleteDespachoError) {
+    throw new Error(`No se pudo eliminar el despacho: ${deleteDespachoError.message}`);
+  }
+
+  const { error: deleteGastoError } = await supabase.from("gastos").delete().eq("id", despacho.gasto_generado_id);
+  if (deleteGastoError) {
+    throw new Error(`No se pudo eliminar el gasto del proyecto destino: ${deleteGastoError.message}`);
+  }
+
+  if (despacho.gasto_origen_id) {
+    const { data: loteOrigen } = await supabase
+      .from("gastos")
+      .select("cantidad")
+      .eq("id", despacho.gasto_origen_id)
+      .maybeSingle();
+    if (loteOrigen) {
+      const nuevaCantidad = (loteOrigen.cantidad ?? 0) + despacho.cantidad;
+      const { error: restoreError } = await supabase
+        .from("gastos")
+        .update({ cantidad: nuevaCantidad, monto_total: nuevaCantidad * despacho.costo_unitario })
+        .eq("id", despacho.gasto_origen_id);
+      if (restoreError) throw new Error(`No se pudo devolver la cantidad a Bodega: ${restoreError.message}`);
+      revalidatePath("/bodega");
+      revalidatePath(`/proyectos/${despacho.proyecto_destino_id}/gastos`);
+      return;
+    }
+  }
+
+  // La compra de origen ya no existe (se había agotado con este despacho) —
+  // se recrea con los datos que quedaron copiados en el propio despacho,
+  // usando la factura/transferencia que el gasto destino tenía (la misma).
+  const { error: recreateError } = await supabase.from("gastos").insert({
+    proyecto_id: bodegaId,
+    etapa_id: null,
+    factura_id: gastoDestino.factura_id,
+    transferencia_id: gastoDestino.transferencia_id,
+    categoria: "Material",
+    material: despacho.material,
+    cantidad: despacho.cantidad,
+    unidad: despacho.unidad,
+    costo_unitario: despacho.costo_unitario,
+    monto_total: despacho.cantidad * despacho.costo_unitario,
+    fecha: despacho.fecha,
+    registrado_por: despacho.registrado_por,
+  });
+  if (recreateError) {
+    throw new Error(`No se pudo recrear la compra en Bodega: ${recreateError.message}`);
+  }
+
+  revalidatePath("/bodega");
+  revalidatePath(`/proyectos/${despacho.proyecto_destino_id}/gastos`);
+}

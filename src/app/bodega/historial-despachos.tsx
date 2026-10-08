@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { currencyFormatter, formatFecha } from "@/lib/format";
 import { MultiSelectFiltro } from "@/components/multi-select-filtro";
+import { DeleteDespachoButton } from "@/app/bodega/delete-despacho-button";
 import { LINK_MUTED } from "@/lib/ui";
 
 export interface DespachoRow {
@@ -148,9 +149,15 @@ export function HistorialDespachos({ despachos }: { despachos: DespachoRow[] }) 
                 <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{d.proyectoDestinoNombre}</td>
                 <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{d.registradoPor ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <Link href={`/proyectos/${d.proyectoDestinoId}/gastos/${d.gastoGeneradoId}/editar`} className={LINK_MUTED}>
-                    Ver gasto
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/proyectos/${d.proyectoDestinoId}/gastos/${d.gastoGeneradoId}/editar`}
+                      className={LINK_MUTED}
+                    >
+                      Ver gasto
+                    </Link>
+                    <DeleteDespachoButton despachoId={d.id} descripcion={d.material} />
+                  </div>
                 </td>
               </tr>
             ))}
