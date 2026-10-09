@@ -72,6 +72,7 @@ export default async function NuevoGastoPage({
         etapasPorProyecto={etapasPorProyecto}
         etapaIdInicial={etapa ? Number(etapa) : undefined}
         materialInicial={material}
+        esBodega={proyecto.modalidad === "Bodega"}
       />
     </div>
   );

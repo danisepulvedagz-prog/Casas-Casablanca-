@@ -106,6 +106,7 @@ export default async function NuevoGastoGlobalPage({
           materiales={materiales}
           proyectos={proyectos ?? []}
           etapasPorProyecto={etapasPorProyecto}
+          esBodega={proyectoSeleccionado.modalidad === "Bodega"}
         />
       )}
     </div>

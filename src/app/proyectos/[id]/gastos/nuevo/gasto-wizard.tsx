@@ -36,6 +36,12 @@ interface GastoWizardProps {
   etapasPorProyecto: Record<string, CatalogoEtapa[]>;
   etapaIdInicial?: number | null;
   materialInicial?: string;
+  // Bodega no asigna etapa al comprar (eso se decide recién al despachar a
+  // un proyecto real) — por eso al leer una boleta ahí el nombre que no
+  // coincide con el catálogo se deja tal cual viene, en vez de "Otros": cada
+  // producto distinto necesita quedar identificable en el stock para poder
+  // despacharlo después (con "Sugerir con IA" en el formulario de despacho).
+  esBodega?: boolean;
 }
 
 const inputClass =
@@ -262,6 +268,7 @@ export function GastoWizard({
   etapasPorProyecto,
   etapaIdInicial,
   materialInicial,
+  esBodega = false,
 }: GastoWizardProps) {
   const [paso, setPaso] = useState<Paso>(
     etapaIdInicial != null || materialInicial ? "material-manual" : "categoria"
@@ -303,6 +310,7 @@ export function GastoWizard({
       {paso === "material-subir-foto" && (
         <PasoMaterialSubirFoto
           proyectoId={proyectoId}
+          esBodega={esBodega}
           onVolver={() => setPaso("material-elegir-modo")}
           onExtraido={(items, cabecera, foto) => {
             setDatosFactura({ items, cabecera, foto });
@@ -429,10 +437,12 @@ function PasoMaterialElegirModo({ onElegir, onVolver }: { onElegir: (p: Paso) =>
 
 function PasoMaterialSubirFoto({
   proyectoId,
+  esBodega,
   onVolver,
   onExtraido,
 }: {
   proyectoId: string;
+  esBodega: boolean;
   onVolver: () => void;
   onExtraido: (items: ItemEditable[], cabecera: CabeceraFactura, foto: File | null) => void;
 }) {
@@ -464,11 +474,18 @@ function PasoMaterialSubirFoto({
         // el nombre tal como vino en la boleta (que puede no calzar con
         // nada), se deja "Otros" y ese nombre pasa a Notas. La etapa queda
         // vacía a propósito: la persona la elige a mano (ver
-        // necesitaElegirEtapa). OJO: no se usa it.etapa_id == null para esto
-        // — en Bodega la etapa SIEMPRE viene null (se elige recién al
-        // despachar), aunque el material sí haya calzado con el catálogo.
+        // necesitaElegirEtapa).
+        //
+        // En Bodega esto NO aplica: ahí no hay etapa que elegir al comprar
+        // (se decide recién al despachar), así que el nombre se deja SIEMPRE
+        // tal como lo devolvió la IA (del catálogo si coincidió, de la
+        // boleta si no) — nunca "Otros". Juntar productos distintos bajo un
+        // mismo "Otros" los fusionaría en el stock y haría imposible
+        // despacharlos por separado. La resolución final a un material real
+        // del catálogo (o "Otros" si de plano no se identifica) pasa recién
+        // al despachar, con el botón "Sugerir con IA" del formulario.
         const items: ItemEditable[] = data.items.map((it) => {
-          const sinCoincidencia = !it.coincideCatalogo;
+          const sinCoincidencia = !esBodega && !it.coincideCatalogo;
           return {
             key: crypto.randomUUID(),
             material: sinCoincidencia ? "Otros" : it.material ?? "",
