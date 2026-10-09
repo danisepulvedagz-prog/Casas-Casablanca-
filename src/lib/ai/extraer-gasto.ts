@@ -154,7 +154,11 @@ si todavía faltara comprar.
 Solo si el producto no se parece a nada del catálogo, o cae en el caso de arriba, usa el nombre tal como
 aparece en el documento/consulta (limpio, sin códigos internos ni referencias entre paréntesis) y etapa_id null.`;
 
-function construirPromptFactura(etapas: EtapaPrompt[], catalogoMateriales: CatalogoMaterialPrompt[]): string {
+function construirPromptFactura(
+  etapas: EtapaPrompt[],
+  catalogoMateriales: CatalogoMaterialPrompt[],
+  esBodega: boolean
+): string {
   const listaEtapas = etapas
     .map((e) => {
       const real = e.fechaInicioReal && e.fechaFinReal ? `, real: ${e.fechaInicioReal} a ${e.fechaFinReal}` : "";
@@ -188,6 +192,20 @@ etapa; si no, usa el "plan") y elige la etapa candidata cuyo rango esté MÁS CE
 hace falta que la fecha caiga dentro del rango, solo que sea la más próxima entre las candidatas. Solo si NINGUNA
 de las etapas candidatas tiene fechas disponibles para comparar, trátalo entonces como el caso de arriba (nombre
 tal como aparece en el documento, etapa_id null).
+${
+  esBodega
+    ? `\nEsta compra es para Bodega (no para un proyecto de obra): nunca tiene fechas de etapas para desambiguar
+(Bodega no tiene cronograma), así que el caso de arriba ("ninguna etapa candidata tiene fechas") se da siempre
+que un material exista en más de una etapa del catálogo. Para Bodega, a diferencia de un proyecto normal, SÍ usa
+el nombre del catálogo en ese caso (cualquiera de las etapas donde aparece tiene el mismo nombre, así que no
+importa cuál) — deja etapa_id en null igual, esa se decide recién cuando el material se despache a un proyecto
+real. Es decir: en Bodega, "material" refleja el nombre real del catálogo siempre que haya coincidencia de
+nombre (aunque esté en varias etapas), y etapa_id null no significa "sin identificar", solo "etapa pendiente de
+elegir al despachar". Solo deja el nombre tal como viene en el documento cuando el producto de verdad no se
+parece a NINGÚN material del catálogo, o cuando hay variantes ambiguas dentro de una misma etapa que no se
+pueden distinguir (ej. Panel SIP sin espesor claro) — ese caso sigue igual que en un proyecto normal.`
+    : ""
+}
 
 Para el monto de cada línea (el "monto_total" de cada ítem): usa el número que el documento ya trae impreso
 en la columna del subtotal/total de esa línea (a veces se llama "Total", "Subtotal" o similar) — NO lo calcules
@@ -371,9 +389,10 @@ export async function extraerItemsFactura(
   imagenBase64: string,
   mimeType: string,
   etapas: EtapaPrompt[],
-  catalogoMateriales: CatalogoMaterialPrompt[]
+  catalogoMateriales: CatalogoMaterialPrompt[],
+  esBodega: boolean
 ): Promise<FacturaExtraida> {
-  const prompt = construirPromptFactura(etapas, catalogoMateriales);
+  const prompt = construirPromptFactura(etapas, catalogoMateriales, esBodega);
   // 4096 se quedaba corto con boletas de 15-20+ ítems (ej. una ferretería
   // con una línea por cada tipo de codo/tapa/tornillo) — el stop_reason
   // venía "max_tokens" y a veces cortaba justo antes de terminar el bloque

@@ -486,13 +486,19 @@ export async function extraerFactura(formData: FormData): Promise<ExtraccionFact
       .filter((m): m is typeof m & { etapa_id: number } => m.etapa_id != null)
       .map((m) => ({ material: m.material, unidad: m.unidad_default, etapaId: m.etapa_id }));
 
-    const data = await extraerItemsFactura(imagenBase64, mimeType, etapas, catalogoMateriales);
+    const data = await extraerItemsFactura(imagenBase64, mimeType, etapas, catalogoMateriales, esBodega);
     const dataCorregida = corregirEtapasSinCoincidencia(data, catalogoMateriales);
-    // coincideCatalogo se calcula ACÁ, antes de forzar etapa_id a null para
-    // Bodega — ver el comentario de ExtraccionFactura más arriba.
+    // coincideCatalogo se calcula comparando el NOMBRE contra el catálogo
+    // completo (sin importar la etapa) — no sirve basarse en etapa_id != null:
+    // en Bodega, un material ambiguo entre varias etapas (ej. "Turbo 4""
+    // existe en 3 etapas distintas) queda con el nombre correcto del catálogo
+    // pero etapa_id null a propósito (esa se decide recién al despachar), y
+    // eso no debe verse como "sin coincidencia" — ver el comentario de
+    // ExtraccionFactura más arriba.
+    const nombresCatalogo = new Set(catalogoMateriales.map((m) => m.material.trim().toLowerCase()));
     const itemsConCoincidencia = dataCorregida.items.map((it) => ({
       ...it,
-      coincideCatalogo: it.etapa_id != null,
+      coincideCatalogo: !!it.material && nombresCatalogo.has(it.material.trim().toLowerCase()),
     }));
     // En Bodega la etapa se elige al despachar, nunca al comprar.
     return {
