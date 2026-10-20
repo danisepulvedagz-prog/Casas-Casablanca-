@@ -393,11 +393,13 @@ export async function extraerItemsFactura(
   esBodega: boolean
 ): Promise<FacturaExtraida> {
   const prompt = construirPromptFactura(etapas, catalogoMateriales, esBodega);
-  // 4096 se quedaba corto con boletas de 15-20+ ítems (ej. una ferretería
-  // con una línea por cada tipo de codo/tapa/tornillo) — el stop_reason
-  // venía "max_tokens" y a veces cortaba justo antes de terminar el bloque
-  // de texto, dejando la respuesta vacía en vez de un JSON truncado.
-  const texto = await llamarClaude(prompt, { base64: imagenBase64, mimeType }, 8192);
+  // 4096 y luego 8192 se quedaban cortos con boletas de 15-20+ ítems (ej.
+  // una ferretería con una línea por cada tipo de codo/tapa/tornillo) — el
+  // stop_reason venía "max_tokens" y a veces cortaba justo antes de terminar
+  // el bloque de texto, dejando la respuesta vacía en vez de un JSON
+  // truncado. 16384 da más margen para boletas largas sin costar de más (el
+  // cobro es por lo que realmente genera, no por este tope).
+  const texto = await llamarClaude(prompt, { base64: imagenBase64, mimeType }, 16384);
   let parsed: unknown;
   try {
     parsed = JSON.parse(limpiarRespuestaJSON(texto));
