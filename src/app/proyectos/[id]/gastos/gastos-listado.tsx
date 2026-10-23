@@ -492,6 +492,7 @@ export function GastosListado({
                             <th className="px-4 py-2">Categoría</th>
                             <th className="px-4 py-2">Etapa</th>
                             <th className="px-4 py-2">Material</th>
+                            <th className="px-4 py-2">Cant.</th>
                             <th className="px-4 py-2">Monto bruto</th>
                             <th className="px-4 py-2"></th>
                           </tr>
@@ -508,6 +509,9 @@ export function GastosListado({
                                 {gasto.notas && (
                                   <p className="mt-0.5 text-xs font-normal text-zinc-500">{gasto.notas}</p>
                                 )}
+                              </td>
+                              <td className="px-4 py-2 text-zinc-600 dark:text-zinc-400">
+                                {gasto.cantidad ? `${gasto.cantidad} ${gasto.unidad ?? ""}` : "—"}
                               </td>
                               <td className="px-4 py-2 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
                                 {currencyFormatter.format(gasto.monto_total)}
