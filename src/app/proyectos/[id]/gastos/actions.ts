@@ -835,16 +835,30 @@ export interface FacturaDuplicada {
 
 /**
  * Advertencia blanda (no bloquea el guardado): busca si ya existe una
- * factura con el mismo proveedor + n° documento, para avisar antes de
- * ingresar la misma boleta dos veces por error.
+ * factura con el mismo proveedor (o RUT) + n° documento, para avisar antes
+ * de ingresar la misma boleta dos veces por error.
  */
 export async function buscarFacturaDuplicada(
   proveedor: string,
+  rut: string,
   nDocumento: string
 ): Promise<FacturaDuplicada | null> {
   const proveedorTrim = proveedor.trim();
   const nDocumentoTrim = nDocumento.trim();
+  const rutNormalizado = normalizarRut(rut);
   if (!proveedorTrim || !nDocumentoTrim) return null;
+
+  // El nombre del proveedor es el campo menos confiable para comparar: la IA
+  // puede transcribirlo distinto entre una subida y otra del mismo documento
+  // (ej. "Repuesto" vs "Repuestos", con/sin "SPA", mayúsculas) y una
+  // coincidencia por "contiene" (ilike %...%) deja de calzar apenas falta o
+  // sobra una palabra. El RUT es un campo estructurado (solo dígitos y un
+  // dígito verificador) mucho más estable al leerlo — si está disponible en
+  // ambos lados, basta con que coincida el RUT exacto, sin depender también
+  // de que el nombre haya quedado idéntico.
+  const condicionProveedor = rutNormalizado
+    ? `proveedor.ilike.%${proveedorTrim}%,rut.eq.${rutNormalizado}`
+    : `proveedor.ilike.%${proveedorTrim}%`;
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -852,10 +866,10 @@ export async function buscarFacturaDuplicada(
     .select("id, fecha, monto_total, proyecto_id")
     // ilike sin comodines exige coincidencia EXACTA (salvo mayúsculas) — con
     // %...% queda como "contiene", más tolerante a que la IA transcriba el
-    // proveedor con espacios/tildes/puntos levemente distintos entre una
+    // n° de documento con espacios/caracteres levemente distintos entre una
     // subida y otra del mismo documento.
-    .ilike("proveedor", `%${proveedorTrim}%`)
     .ilike("n_documento", `%${nDocumentoTrim}%`)
+    .or(condicionProveedor)
     .limit(1)
     .maybeSingle();
 
@@ -874,15 +888,23 @@ export interface TransferenciaDuplicada {
 
 /**
  * Igual que buscarFacturaDuplicada, pero para transferencias: busca por
- * destinatario + n° de operación.
+ * n° de operación + destinatario (o RUT).
  */
 export async function buscarTransferenciaDuplicada(
   destinatario: string,
+  rut: string,
   nOperacion: string
 ): Promise<TransferenciaDuplicada | null> {
   const destinatarioTrim = destinatario.trim();
   const nOperacionTrim = nOperacion.trim();
+  const rutNormalizado = normalizarRut(rut);
   if (!destinatarioTrim || !nOperacionTrim) return null;
+
+  // Ver el comentario en buscarFacturaDuplicada sobre por qué el RUT es más
+  // confiable que el nombre transcrito por la IA.
+  const condicionDestinatario = rutNormalizado
+    ? `destinatario.ilike.%${destinatarioTrim}%,rut.eq.${rutNormalizado}`
+    : `destinatario.ilike.%${destinatarioTrim}%`;
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -890,8 +912,8 @@ export async function buscarTransferenciaDuplicada(
     .select("id, fecha, monto_total, proyecto_id")
     // Ver el mismo comentario en buscarFacturaDuplicada: sin %...% ilike
     // exige coincidencia exacta, muy estricta para texto leído por IA.
-    .ilike("destinatario", `%${destinatarioTrim}%`)
     .ilike("n_operacion", `%${nOperacionTrim}%`)
+    .or(condicionDestinatario)
     .limit(1)
     .maybeSingle();
 

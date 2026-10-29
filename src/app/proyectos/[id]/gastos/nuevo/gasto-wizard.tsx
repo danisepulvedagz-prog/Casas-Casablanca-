@@ -584,6 +584,7 @@ function PasoMaterialRevisar({
   const primerChequeoRef = useRef(true);
   useEffect(() => {
     const proveedor = cabecera.proveedor;
+    const rut = cabecera.rut;
     const nDocumento = cabecera.nDocumento;
     const espera = primerChequeoRef.current ? 0 : 500;
     primerChequeoRef.current = false;
@@ -594,14 +595,14 @@ function PasoMaterialRevisar({
         setFacturaDuplicada(null);
         return;
       }
-      const resultado = await buscarFacturaDuplicada(proveedor, nDocumento);
+      const resultado = await buscarFacturaDuplicada(proveedor, rut, nDocumento);
       if (!cancelado) setFacturaDuplicada(resultado);
     }, espera);
     return () => {
       cancelado = true;
       clearTimeout(timeout);
     };
-  }, [cabecera.proveedor, cabecera.nDocumento]);
+  }, [cabecera.proveedor, cabecera.rut, cabecera.nDocumento]);
 
   function alternarProyecto(pid: string) {
     setProyectosSeleccionados((prev) => {
@@ -1441,14 +1442,14 @@ function PasoTransferenciaRevisar({
         setTransferenciaDuplicada(null);
         return;
       }
-      const resultado = await buscarTransferenciaDuplicada(destinatario, nOperacion);
+      const resultado = await buscarTransferenciaDuplicada(destinatario, rut, nOperacion);
       if (!cancelado) setTransferenciaDuplicada(resultado);
     }, espera);
     return () => {
       cancelado = true;
       clearTimeout(timeout);
     };
-  }, [destinatario, nOperacion]);
+  }, [destinatario, rut, nOperacion]);
   // Mano de Obra: una sola etapa para el único gasto. Material: cada ítem
   // de la tabla trae la suya (una transferencia también puede cubrir
   // materiales de más de una etapa, y repartirse entre proyectos igual que
