@@ -137,9 +137,11 @@ del catálogo — puede traer marca comercial, código interno, tamaño de envas
   el catálogo también tiene "Coplas" y "Copla 50mm" en la etapa Sanitarios, pero esas son conexiones de cañería
   PVC/PPR, un producto distinto; "Acople" a secas (sin mención de cañería/PVC) siempre es el de Preparación de
   terreno;
-  "Hormigón Weber" (o cualquier saco de la marca Weber para afinar/nivelar piso, ej. "Weber.piso", sin importar
-  el nombre comercial exacto) es "Sacos afinado piso" de la etapa Afinado de piso — ojo que esa etapa también
-  tiene "Mortero piso", un producto distinto; los sacos Weber siempre van a "Sacos afinado piso").
+  cualquier saco de hormigón H20 (u "Hormigón Weber") de 25kg para afinar/nivelar piso, sin importar la marca
+  (Weber, Toro, TX, Adilisto, etc.) ni el nombre comercial exacto (ej. "Hormigón H20 TX Saco 25 KG",
+  "Hormigon Weber H20 25KG", "Hormigón Seco 25 kg H-20"), es "Sacos afinado piso" de la etapa Afinado de piso
+  — ojo que esa etapa también tiene "Mortero piso", un producto distinto; estos sacos siempre van a
+  "Sacos afinado piso").
 
 Si encuentras una coincidencia razonable, usa EXACTAMENTE el nombre de material y la etapa del catálogo
 (copia el nombre tal cual está entre comillas, no inventes variaciones) — no uses el nombre ni la redacción
