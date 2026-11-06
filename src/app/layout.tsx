@@ -89,6 +89,14 @@ export default async function RootLayout({
                 Resumen semanal
               </Link>
             )}
+            {esAdmin && (
+              <Link
+                href="/precios-materiales"
+                className="text-sm font-light uppercase tracking-wide text-zinc-700 transition-colors hover:text-brand dark:text-zinc-300"
+              >
+                Precios
+              </Link>
+            )}
             {user && (
               <Link
                 href="/bodega"
