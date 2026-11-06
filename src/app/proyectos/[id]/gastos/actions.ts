@@ -129,6 +129,169 @@ function parseGastoForm(formData: FormData) {
   } as const;
 }
 
+/**
+ * Si el gasto que se está editando vino de un despacho de Bodega (tiene una
+ * fila en bodega_despachos vía gasto_generado_id), mantiene todo sincronizado
+ * al cambiar la cantidad: ajusta el registro del despacho (para que el
+ * historial de Bodega muestre lo mismo que el gasto) y devuelve o quita la
+ * diferencia del lote de compra original en Bodega.
+ *
+ * El monto/costo del lado del proyecto destino se puede editar libre — puede
+ * ser solo una corrección de typo que no tiene por qué tocar el costo real
+ * de la compra — así que acá SIEMPRE se usa el costo_unitario original del
+ * despacho (el de la compra real), nunca el que haya quedado en el gasto
+ * editado, para no corromper el costo de la bodega con un typo del destino.
+ *
+ * No toca nada si el gasto no vino de un despacho, o si la cantidad no
+ * cambió. Si la cantidad aumenta, valida que haya stock suficiente en el
+ * lote de origen antes de sacarlo (no reparte entre otros lotes vía FIFO —
+ * alcanza para el caso de corregir una cantidad ya despachada).
+ */
+async function obtenerDespachoDeGasto(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gastoId: string
+) {
+  const { data } = await supabase.from("bodega_despachos").select("*").eq("gasto_generado_id", gastoId).maybeSingle();
+  return data;
+}
+
+/**
+ * Chequeo de solo lectura ANTES de tocar el gasto: si la cantidad va a
+ * aumentar y eso implica sacar más stock del que queda en Bodega, corta acá
+ * con un error — para no dejar el gasto ya guardado con una cantidad que
+ * Bodega no puede respaldar (ver sincronizarDespachoBodega más abajo, que
+ * hace el mismo chequeo otra vez al aplicar, por si cambió entremedio).
+ */
+async function validarAumentoDespacho(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gastoId: string,
+  cantidadAnterior: number | null,
+  cantidadNueva: number | null
+): Promise<{ error?: string }> {
+  if (cantidadAnterior == null || cantidadNueva == null || cantidadNueva <= cantidadAnterior) return {};
+  const despacho = await obtenerDespachoDeGasto(supabase, gastoId);
+  if (!despacho) return {};
+
+  const extra = cantidadNueva - cantidadAnterior;
+  if (!despacho.gasto_origen_id) {
+    return { error: "No se pudo aumentar la cantidad: la compra original en Bodega ya no existe." };
+  }
+  const { data: lote } = await supabase
+    .from("gastos")
+    .select("cantidad")
+    .eq("id", despacho.gasto_origen_id)
+    .maybeSingle();
+  if (!lote || (lote.cantidad ?? 0) < extra) {
+    return {
+      error: `No hay suficiente stock en Bodega para aumentar en ${extra} ${despacho.unidad ?? ""} más de "${despacho.material}" (quedan ${lote?.cantidad ?? 0}).`,
+    };
+  }
+  return {};
+}
+
+async function sincronizarDespachoBodega(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gastoId: string,
+  cantidadAnterior: number | null,
+  cantidadNueva: number | null
+): Promise<{ error?: string }> {
+  if (cantidadAnterior == null || cantidadNueva == null || cantidadAnterior === cantidadNueva) return {};
+
+  const despacho = await obtenerDespachoDeGasto(supabase, gastoId);
+  if (!despacho) return {};
+
+  const diferencia = cantidadAnterior - cantidadNueva; // > 0: devuelve a Bodega; < 0: saca más de Bodega
+
+  async function recrearLoteOrigen(
+    d: NonNullable<typeof despacho>,
+    cantidadLote: number
+  ): Promise<{ id?: string; error?: string }> {
+    const { data: bodega } = await supabase.from("proyectos").select("id").eq("modalidad", "Bodega").single();
+    const { data: gastoDestino } = await supabase
+      .from("gastos")
+      .select("factura_id, transferencia_id")
+      .eq("id", gastoId)
+      .maybeSingle();
+    if (!bodega) return { error: "No se encontró el proyecto Bodega." };
+    const { data: nuevoLote, error } = await supabase
+      .from("gastos")
+      .insert({
+        proyecto_id: bodega.id,
+        etapa_id: null,
+        factura_id: gastoDestino?.factura_id ?? null,
+        transferencia_id: gastoDestino?.transferencia_id ?? null,
+        categoria: "Material",
+        material: d.material,
+        cantidad: cantidadLote,
+        unidad: d.unidad,
+        costo_unitario: d.costo_unitario,
+        monto_total: cantidadLote * d.costo_unitario,
+        fecha: d.fecha,
+        registrado_por: d.registrado_por,
+      })
+      .select("id")
+      .single();
+    if (error || !nuevoLote) return { error: `No se pudo recrear la compra en Bodega: ${error?.message}` };
+    return { id: nuevoLote.id };
+  }
+
+  if (diferencia > 0) {
+    // Se devuelven `diferencia` unidades a Bodega.
+    const lote = despacho.gasto_origen_id
+      ? (await supabase.from("gastos").select("cantidad").eq("id", despacho.gasto_origen_id).maybeSingle()).data
+      : null;
+    if (lote) {
+      const nuevaCantidadLote = (lote.cantidad ?? 0) + diferencia;
+      const { error } = await supabase
+        .from("gastos")
+        .update({ cantidad: nuevaCantidadLote, monto_total: nuevaCantidadLote * despacho.costo_unitario })
+        .eq("id", despacho.gasto_origen_id!);
+      if (error) return { error: `No se pudo devolver la diferencia a Bodega: ${error.message}` };
+    } else {
+      // La compra de origen ya no existe (se había agotado) — se recrea.
+      const { id: nuevoLoteId, error } = await recrearLoteOrigen(despacho, diferencia);
+      if (error) return { error };
+      await supabase.from("bodega_despachos").update({ gasto_origen_id: nuevoLoteId }).eq("id", despacho.id);
+    }
+  } else if (diferencia < 0) {
+    // Se saca `extra` unidades más de Bodega.
+    const extra = -diferencia;
+    if (!despacho.gasto_origen_id) {
+      return { error: "No se pudo aumentar la cantidad: la compra original en Bodega ya no existe." };
+    }
+    const { data: lote } = await supabase
+      .from("gastos")
+      .select("cantidad")
+      .eq("id", despacho.gasto_origen_id)
+      .maybeSingle();
+    if (!lote || (lote.cantidad ?? 0) < extra) {
+      return {
+        error: `No hay suficiente stock en Bodega para aumentar en ${extra} ${despacho.unidad ?? ""} más de "${despacho.material}".`,
+      };
+    }
+    const nuevaCantidadLote = (lote.cantidad ?? 0) - extra;
+    if (nuevaCantidadLote > 0) {
+      const { error } = await supabase
+        .from("gastos")
+        .update({ cantidad: nuevaCantidadLote, monto_total: nuevaCantidadLote * despacho.costo_unitario })
+        .eq("id", despacho.gasto_origen_id);
+      if (error) return { error: `No se pudo descontar de Bodega: ${error.message}` };
+    } else {
+      const { error } = await supabase.from("gastos").delete().eq("id", despacho.gasto_origen_id);
+      if (error) return { error: `No se pudo cerrar la compra en Bodega: ${error.message}` };
+    }
+  }
+
+  const { error: errDespacho } = await supabase
+    .from("bodega_despachos")
+    .update({ cantidad: cantidadNueva })
+    .eq("id", despacho.id);
+  if (errDespacho) return { error: `No se pudo actualizar el historial de despacho: ${errDespacho.message}` };
+
+  revalidatePath("/bodega");
+  return {};
+}
+
 export async function updateGasto(
   proyectoId: string,
   gastoId: string,
@@ -152,6 +315,15 @@ export async function updateGasto(
   }
 
   const supabase = await createClient();
+
+  const { data: gastoAnterior } = await supabase.from("gastos").select("cantidad").eq("id", gastoId).maybeSingle();
+  const cantidadAnterior = gastoAnterior?.cantidad ?? null;
+
+  // Se valida ANTES de guardar: si la cantidad sube más de lo que queda en
+  // Bodega, se corta acá y el gasto queda intacto (nada que deshacer).
+  const validacion = await validarAumentoDespacho(supabase, gastoId, cantidadAnterior, parsed.values.cantidad);
+  if (validacion.error) return { error: validacion.error };
+
   const { error } = await supabase
     .from("gastos")
     .update({ ...parsed.values, ...fotoUpdate })
@@ -159,6 +331,11 @@ export async function updateGasto(
 
   if (error) {
     return { error: `No se pudo actualizar el gasto: ${error.message}` };
+  }
+
+  const sync = await sincronizarDespachoBodega(supabase, gastoId, cantidadAnterior, parsed.values.cantidad);
+  if (sync.error) {
+    return { error: `El gasto se guardó, pero: ${sync.error}` };
   }
 
   revalidatePath(`/proyectos/${proyectoId}/gastos`);
